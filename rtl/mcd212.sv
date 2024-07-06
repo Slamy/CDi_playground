@@ -122,6 +122,13 @@ module mcd212 (
         if ((lds || uds) && cs_system_io && write_strobe)
             $display("Write Sys %x %x", addressb, din);
     end
+    
+    typedef  struct packed {
+        bit [5:0] r;
+        bit [5:0] g;
+        bit [5:0] b;
+    } clut_entry;
 
+    clut_entry clut [256];
 endmodule
 
