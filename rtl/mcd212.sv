@@ -1,24 +1,30 @@
 module mcd212 (
     input clk,
-    input [22:1] address,
-    input [15:0] din,
-    output bit [15:0] dout,
-    input uds,
-    input lds,
-    input write_strobe,
-    output bit bus_ack,
+    input [22:1] cpu_address,
+    input [15:0] cpu_din,
+    output bit [15:0] cpu_dout,
+    input cpu_uds,
+    input cpu_lds,
+    input cpu_write_strobe,
+    output bit cpu_bus_ack,
     input cs,
-    output csrom
+    output csrom,
+
+    output [7:0] r,
+    output [7:0] g,
+    output [7:0] b,
+    output hsync,
+    output vsync
 );
     bit [15:0] testram[512*1024]  /*verilator public_flat_rw*/;
 
-    wire [22:0] addressb = {address[22:1], 1'b0};
+    wire [22:0] cpu_addressb = {cpu_address[22:1], 1'b0};
     // implementation of memory map according to MCD212 datasheet
-    wire cs_ram = addressb <= 23'h3fffff && cs;  // 4MB
-    wire cs_rom = addressb >= 23'h400000 && addressb <= 23'h4ffbff && cs;
-    wire cs_system_io = addressb >= 23'h4ffc00 && addressb <= 23'h4fffdf && cs;
-    wire cs_channel2 = addressb >= 23'h4fffe0 && addressb <= 23'h4fffef && cs;
-    wire cs_channel1 = addressb >= 23'h4ffff0 && addressb <= 23'h4fffff && cs;
+    wire cs_ram = cpu_addressb <= 23'h3fffff && cs;  // 4MB
+    wire cs_rom = cpu_addressb >= 23'h400000 && cpu_addressb <= 23'h4ffbff && cs;
+    wire cs_system_io = cpu_addressb >= 23'h4ffc00 && cpu_addressb <= 23'h4fffdf && cs;
+    wire cs_channel2 = cpu_addressb >= 23'h4fffe0 && cpu_addressb <= 23'h4fffef && cs;
+    wire cs_channel1 = cpu_addressb >= 23'h4ffff0 && cpu_addressb <= 23'h4fffff && cs;
 
     // Memory Swapping according to chapter 3.4
     // of MCD212 datasheet.
@@ -26,24 +32,23 @@ module mcd212 (
     wire cs_early_rom = early_rom_cnt <= 10;
     always @(posedge clk) begin
         // first 4 memory accesses must be mapped to ROM
-        if (cs && uds) begin
+        if (cs && cpu_uds) begin
             if (cs_early_rom) early_rom_cnt <= early_rom_cnt + 1;
         end
-
     end
 
     assign csrom = (cs_rom || cs_early_rom) && cs;
 
-    wire [9:0] ras = {address[19], address[10], address[18:11]};
-    wire [9:0] cas = {address[10:1]};
+    //wire [9:0] ras = {cpu_address[19], cpu_address[10], cpu_address[18:11]};
+    //wire [9:0] cas = {cpu_address[10:1]};
 
     // Bit 18 is the Bank selection for TD=0
     // CAS1 if A18=0, CAS2 if A18=1
-    wire [19:1] ram_address = {address[18], address[21], address[17:1]};
+    wire [19:1] ram_address = {cpu_address[18], cpu_address[21], cpu_address[17:1]};
 
     bit cs_q = 0;
-    bit lds_q = 0;
-    bit uds_q = 0;
+    bit cpu_lds_q = 0;
+    bit cpu_uds_q = 0;
 
     bit parity = 0;
     bit display_active = 0;
@@ -54,81 +59,117 @@ module mcd212 (
         tempcnt <= tempcnt + 1;
         display_active <= tempcnt[7];
     end
-    bit  ram_read_access_q = 0;
-    wire ram_read_access = !write_strobe && cs_ram && (uds || lds) && !ram_read_access_q;
+    bit ram_read_access_q = 0;
+    wire ram_read_access = !cpu_write_strobe && cs_ram && (cpu_uds || cpu_lds) && !ram_read_access_q;
 
     always_comb begin
-        bus_ack = 1;
+        cpu_bus_ack = 1;
 
-        if (ram_read_access) bus_ack = 0;
+        if (ram_read_access) cpu_bus_ack = 0;
     end
 
     always_ff @(posedge clk) begin
         cs_q <= cs;
-        uds_q <= uds;
-        lds_q <= lds;
+        cpu_uds_q <= cpu_uds;
+        cpu_lds_q <= cpu_lds;
         ram_read_access_q <= ram_read_access;
 
         if (cs_ram) begin
-            if (uds && write_strobe) begin
-                testram[ram_address[19:1]][15:8] <= din[15:8];
+            if (cpu_uds && cpu_write_strobe) begin
+                testram[ram_address[19:1]][15:8] <= cpu_din[15:8];
             end
-            if (lds && write_strobe) begin
-                testram[ram_address[19:1]][7:0] <= din[7:0];
+            if (cpu_lds && cpu_write_strobe) begin
+                testram[ram_address[19:1]][7:0] <= cpu_din[7:0];
             end
 
-            if (!write_strobe) begin
-                dout <= testram[ram_address[19:1]];
+            if (!cpu_write_strobe) begin
+                cpu_dout <= testram[ram_address[19:1]];
             end
         end else if (cs_channel1) begin
-            case (addressb[7:0])
+            case (cpu_addressb[7:0])
                 8'hf0: begin
-                    dout <= {8'h0, display_active, 1'b0, parity, 5'b0};
-                    //dout <= {display_active, 1'b0, parity, 5'b0, display_active, 1'b0, parity, 5'b0};
+                    cpu_dout <= {8'h0, display_active, 1'b0, parity, 5'b0};
+                    //cpu_dout <= {display_active, 1'b0, parity, 5'b0, display_active, 1'b0, parity, 5'b0};
                 end
-                default: dout <= 16'h0;
+                default: cpu_dout <= 16'h0;
             endcase
         end else if (cs_channel2) begin
-            case (addressb[7:0])
-                default: dout <= 16'h0;
+            case (cpu_addressb[7:0])
+                default: cpu_dout <= 16'h0;
             endcase
         end
 
         /*
-        if ((lds || uds) && cs_ram && !write_strobe && bus_ack) 
-            $display("Read DRAM %x %x", addressb, dout);
+        if ((cpu_lds || cpu_uds) && cs_ram && !cpu_write_strobe && cpu_bus_ack) 
+            $display("Read DRAM %x %x", cpu_addressb, cpu_dout);
         
-        if (lds && uds && cs_ram && write_strobe) begin
-            $display("Write DRAM %x %x", addressb, din);
-            assert (!(addressb==0 && din ==16'h5aa5));
-        end else if (lds && cs_ram && write_strobe)
-            $display("Write Lower Byte RAM %x %x", addressb, din);
-        else if (uds && cs_ram && write_strobe)
-            $display("Write Upper Byte RAM %x %x", addressb, din);
+        if (cpu_lds && cpu_uds && cs_ram && cpu_write_strobe) begin
+            $display("Write DRAM %x %x", cpu_addressb, cpu_din);
+            assert (!(cpu_addressb==0 && cpu_din ==16'h5aa5));
+        end else if (cpu_lds && cs_ram && cpu_write_strobe)
+            $display("Write Lower Byte RAM %x %x", cpu_addressb, cpu_din);
+        else if (cpu_uds && cs_ram && cpu_write_strobe)
+            $display("Write Upper Byte RAM %x %x", cpu_addressb, cpu_din);
         */
-        
-        if ((lds || uds) && cs_channel1 && write_strobe)
-            $display("Write Channel 1 %x %x", addressb, din);
 
-        if ((lds || uds) && cs_channel1 && !write_strobe)
-            $display("Read Channel 1 %x %x", addressb, dout);
+        if ((cpu_lds || cpu_uds) && cs_channel1 && cpu_write_strobe)
+            $display("Write Channel 1 %x %x", cpu_addressb, cpu_din);
 
-        if ((lds || uds) && cs_channel2 && write_strobe)
-            $display("Write Channel 2 %x %x", addressb, din);
+        if ((cpu_lds || cpu_uds) && cs_channel1 && !cpu_write_strobe)
+            $display("Read Channel 1 %x %x", cpu_addressb, cpu_dout);
 
-        if ((lds || uds) && cs_channel2 && !write_strobe)
-            $display("Read Channel 2 %x %x", addressb, dout);
+        if ((cpu_lds || cpu_uds) && cs_channel2 && cpu_write_strobe)
+            $display("Write Channel 2 %x %x", cpu_addressb, cpu_din);
 
-        if ((lds || uds) && cs_system_io && write_strobe)
-            $display("Write Sys %x %x", addressb, din);
+        if ((cpu_lds || cpu_uds) && cs_channel2 && !cpu_write_strobe)
+            $display("Read Channel 2 %x %x", cpu_addressb, cpu_dout);
+
+        if ((cpu_lds || cpu_uds) && cs_system_io && cpu_write_strobe)
+            $display("Write Sys %x %x", cpu_addressb, cpu_din);
     end
-    
-    typedef  struct packed {
+
+    typedef struct packed {
         bit [5:0] r;
         bit [5:0] g;
         bit [5:0] b;
     } clut_entry;
 
-    clut_entry clut [256];
+    clut_entry clut[256];
+
+    bit sm = 0;
+    bit cf = 0;
+    bit st = 0;
+    bit fd = 1;  // 60Hz
+    bit cm = 0;
+    bit [8:0] video_y;
+    bit [8:0] video_x;
+    video_timing vt (
+        .clk,
+        .sm,
+        .cf,
+        .st,
+        .cm,
+        .fd,
+        .video_y,
+        .video_x,
+        .hsync,
+        .vsync
+    );
+
+    bit ica0_reset = 0;
+    bit [21:0] ica0_adr;
+    bit ica0_as;
+    bit [15:0] ica0_din;
+    bit ica0_bus_ack;
+
+    ica_dca_ctrl ica0 (
+        .clk,
+        .reset(ica0_reset),
+        .address(ica0_adr),
+        .as(ica0_as),
+        .din(ica0_din),
+        .bus_ack(ica0_bus_ack)
+    );
+
 endmodule
 

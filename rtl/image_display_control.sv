@@ -1,15 +1,17 @@
 // Info from Chapter 5 - Image Display Control (MCD212)
 
 module video_timing (
-    input sm,  // scan mode, 1 == interlaced
-    input cf,  // crystal, 1 = 28 MHz for monitors, 0 = 30 MHz for TV
-    input st,  // standard
+    input clk,
+    input sm,  // scan mode, 1 = interlaced, 0 = non-interlaced
+    input cf,  // crystal, 0 = 28 MHz for NTSC monitors, 1 = 30 MHz for TV
+    input st,  // standard, 1=360/720 pixels per line, 0=384/768
     input cm,  // color mode
-    input fd,  // frame duration
+    input fd,  // frame duration, 0=50 Hz, 1=60 Hz
     output bit [8:0] video_y,
-    output bit [12:0] video_x
+    output bit [8:0] video_x,
+    output hsync,
+    output vsync
 );
-
 
     // according to Table 5-6
     bit [8:0] h_total;  // A in datasheet
@@ -22,7 +24,6 @@ module video_timing (
     bit [8:0] v_start;  // L in datasheet
     bit [8:0] v_front_porch;  // M in datasheet
 
-    localparam bit [22:0] ica_start = 23'h400;
 
     always_comb begin
         if (fd) begin
@@ -57,36 +58,5 @@ module video_timing (
     end
 
 
-    bit [31:0] instruction;
-    always_ff @(posedge clk) begin
-        case (instruction[31:28])
-            0: begin
-                // stop until next field
-            end
-            1: begin
-                // no operation
-            end
-            2: begin
-                // reload dcp
-            end
-            3: begin
-                // reload dcp and stop
-            end
-            4: begin
-                // reload ica pointer
-            end
-            5: begin
-                // reload vsr pointer and stop
-            end
-            6: begin
-                // interrupt
-            end
-            7: begin
-                // reload display parameters
-            end
-
-        endcase
-
-    end
 
 endmodule
