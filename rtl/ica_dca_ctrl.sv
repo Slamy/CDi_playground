@@ -8,8 +8,10 @@ module ica_dca_ctrl (
 
     output [6:0] register_adr,
     output [23:0] register_data,
-    output register_write
+    output register_write,
 
+    output reload_vsr,
+    output [21:0] vsr
 );
 
     localparam bit [21:0] odd_ica_start = 22'h400;
@@ -27,10 +29,12 @@ module ica_dca_ctrl (
         STOPPED
     } state;
 
-    assign register_adr   = instruction[30:24];
-    assign register_data  = instruction[23:0];
+    assign register_adr = instruction[30:24];
+    assign register_data = instruction[23:0];
     assign register_write = state == EXECUTE && instruction[31];
 
+    assign vsr = instruction[21:0];
+    assign reload_vsr = state == EXECUTE && instruction[31:28] == 5;
     /*
     always_ff @(posedge clk) begin
         if (register_write) $display("ICA Write %x %x %b", {1'b1, register_adr}, register_data, register_data);
@@ -116,12 +120,12 @@ module ica_dca_ctrl (
                             // reload display parameters
                             //assert(instruction[27]);
                             //assert(!instruction[5]);
-                            cm <=instruction[4];
-                            mf1 <=instruction[3];
-                            mf2 <=instruction[2];
-                            ft1 <=instruction[1];
-                            ft2 <=instruction[0];
-                            $display("RELOAD DISPLAY PARAMETERS %b",instruction[4:0]);
+                            cm  <= instruction[4];
+                            mf1 <= instruction[3];
+                            mf2 <= instruction[2];
+                            ft1 <= instruction[1];
+                            ft2 <= instruction[0];
+                            $display("RELOAD DISPLAY PARAMETERS %b", instruction[4:0]);
                             state <= IDLE;
                         end
                         default: begin

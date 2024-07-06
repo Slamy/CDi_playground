@@ -139,6 +139,15 @@ module mcd212 (
         bit [5:0] b;
     } clut_entry;
 
+    typedef struct packed {
+        bit [3:0] op;
+        bit rf;
+        bit [5:0] wf;
+        bit [9:0] x;
+    } region_entry;
+
+    region_entry region_control[8];
+
     clut_entry clut[256];
     clut_entry trans_color_plane_a;
     clut_entry trans_color_plane_b;
@@ -175,6 +184,9 @@ module mcd212 (
     bit [23:0] register_data;
     bit register_write;
 
+    bit ica0_reload_vsr;
+    bit [21:0] ica0_vsr;
+
     ica_dca_ctrl ica0 (
         .clk,
         .reset(ica0_reset),
@@ -184,8 +196,46 @@ module mcd212 (
         .bus_ack(ica0_bus_ack),
         .register_adr,
         .register_data,
-        .register_write
+        .register_write,
+        .reload_vsr(ica0_reload_vsr),
+        .vsr(ica0_vsr)
     );
+
+    bit [21:0] file0_adr;
+    bit file0_as;
+    bit [15:0] file0_din;
+    bit file0_bus_ack;
+
+    bit [7:0] pixel;
+    bit pixel_strobe;
+
+    display_file_decoder file0 (
+        .clk,
+        .reset(0),
+        .address(file0_adr),
+        .as(file0_as),
+        .din(file0_din),
+        .bus_ack(file0_bus_ack),
+        .reload_vsr(ica0_reload_vsr),
+        .vsr_in(ica0_vsr),
+        .pixel,
+        .pixel_strobe
+    );
+
+    always_ff @(posedge clk) begin
+        if (pixel_strobe) $display("%x  %x %x %x",pixel, clut[pixel].r, clut[pixel].g, clut[pixel].b);
+    end
+
+    always_ff @(posedge clk) begin
+        file0_din <= testram[file0_adr[19:1]];
+
+        if (file0_bus_ack) file0_bus_ack <= 0;
+        else file0_bus_ack <= file0_as;
+    end
+
+    always_ff @(posedge clk) begin
+        if (ica0_reload_vsr) $display("Reload VSR %x", ica0_vsr);
+    end
 
     initial begin
         @(posedge clk) @(posedge clk) @(posedge clk) ica0_reset = 0;
@@ -199,6 +249,7 @@ module mcd212 (
     end
 
     bit [15:0] cursor[16];
+
     bit [1:0] clut_bank;
     bit [9:0] cursor_x;
     bit [9:0] cursor_y;
@@ -240,6 +291,12 @@ module mcd212 (
                         register_data[23:18], register_data[15:10], register_data[7:2]
                     };
                 end
+                7'h4a: begin
+                    // DYUV Abs. Start Value for Plane A
+                end
+                7'h4b: begin
+                    // DYUV Abs. Start Value for Plane B
+                end
                 7'h4d: begin
                     // Cursor Position
                     cursor_x <= register_data[9:0];
@@ -256,12 +313,26 @@ module mcd212 (
                     $display("Cursor %x %b", register_data[19:16], register_data[15:0]);
                 end
 
+                7'h58: begin
+                    // Backdrop Color
+                end
+                7'h59: begin
+                    // Mosaic Pixel Hold for Plane A
+                end
+                7'h5b: begin
+                    // Weight Factor for Plane A
+                end
                 default: begin
                     if (register_adr >= 7'h40) begin
                         $display("Ignored %x", register_adr);
                     end
                 end
             endcase
+
+            if (register_adr[6:3] == 4'b1010) begin
+                $display("Region %d %b", register_adr[2:0], register_data);
+                region_control[register_adr[2:0]] <= {register_data[23:20], register_data[16:0]};
+            end
 
             if (register_adr <= 7'h3f) begin
                 // CLUT Color 0 to 63
