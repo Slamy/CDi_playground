@@ -182,7 +182,7 @@ module scc68070 (
         // TODO ensure correct frequency
         if (timer0 == 16'hffff) begin
             timer0 <= timer_reload_register;
-            $display("Reload Timer 0 with %x", timer_reload_register);
+            // $display("Reload Timer 0 with %x", timer_reload_register);
         end else if (timer_cs && (internal_lds || internal_uds) && write_strobe && addr[3:1] == 3'd2) begin
             timer0 <= data_out;
             $display("Load Timer 0 with %x", data_out);

@@ -28,12 +28,17 @@ void do_justwait(VerilatedVcdC &m_trace, Vfx68k_tb &dut) {
     dut.eval();
 
     dut.rootp->fx68k_tb__DOT__scc68070_0__DOT__uart_status_register |= 0x04;
-    //dut.rootp->fx68k_tb__DOT__resetcnt = 0x7FFF8;
+    // dut.rootp->fx68k_tb__DOT__resetcnt = 0x7FFF8;
 
-    kDoTrace = false;
+    kDoTrace = true;
 
-    //for (int y = 0; y < 100; y++) {
-      for (int y = 0;; y++) {
+    FILE *f=fopen("ramdump.bin","rb");
+	assert(f);
+	fread(& dut.rootp->fx68k_tb__DOT__mcd212_inst__DOT__testram[0],1,1024*256*4,f);
+	fclose(f);
+
+    for (int y = 0; y < 2000; y++) {
+        //  for (int y = 0;; y++) {
         dut.rootp->fx68k_tb__DOT__clk = 0;
         dut.eval();
         if (kDoTrace) {
@@ -106,7 +111,7 @@ void do_justwait(VerilatedVcdC &m_trace, Vfx68k_tb &dut) {
         if (status == SIGINT)
             break;
     }
-
+/*
     uint32_t ica1 = readlongword(dut, 0x400);
     uint32_t ica2 = readlongword(dut, 0x40400);
 
@@ -118,6 +123,7 @@ void do_justwait(VerilatedVcdC &m_trace, Vfx68k_tb &dut) {
 
     for (int i = 0; i < 20; i++)
         printf("ICA2 %x\n", readlongword(dut, 0x40408 + i * 4));
+        */
 
     /*
         for (int i = 0; i < 100; i++)

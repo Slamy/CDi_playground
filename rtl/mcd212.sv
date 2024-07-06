@@ -18,6 +18,11 @@ module mcd212 (
 );
     bit [15:0] testram[512*1024]  /*verilator public_flat_rw*/;
 
+    initial begin
+        //$readmemh("ramdump.mem", testram);
+    end
+
+
     wire [22:0] cpu_addressb = {cpu_address[22:1], 1'b0};
     // implementation of memory map according to MCD212 datasheet
     wire cs_ram = cpu_addressb <= 23'h3fffff && cs;  // 4MB
@@ -135,6 +140,10 @@ module mcd212 (
     } clut_entry;
 
     clut_entry clut[256];
+    clut_entry trans_color_plane_a;
+    clut_entry trans_color_plane_b;
+    clut_entry mask_color_plane_a;
+    clut_entry mask_color_plane_b;
 
     bit sm = 0;
     bit cf = 0;
@@ -156,11 +165,15 @@ module mcd212 (
         .vsync
     );
 
-    bit ica0_reset = 0;
+    bit ica0_reset = 1;
     bit [21:0] ica0_adr;
     bit ica0_as;
     bit [15:0] ica0_din;
     bit ica0_bus_ack;
+
+    bit [6:0] register_adr;
+    bit [23:0] register_data;
+    bit register_write;
 
     ica_dca_ctrl ica0 (
         .clk,
@@ -168,8 +181,99 @@ module mcd212 (
         .address(ica0_adr),
         .as(ica0_as),
         .din(ica0_din),
-        .bus_ack(ica0_bus_ack)
+        .bus_ack(ica0_bus_ack),
+        .register_adr,
+        .register_data,
+        .register_write
     );
 
+    initial begin
+        @(posedge clk) @(posedge clk) @(posedge clk) ica0_reset = 0;
+    end
+
+    always_ff @(posedge clk) begin
+        ica0_din <= testram[ica0_adr[19:1]];
+
+        if (ica0_bus_ack) ica0_bus_ack <= 0;
+        else ica0_bus_ack <= ica0_as;
+    end
+
+    bit [15:0] cursor[16];
+    bit [1:0] clut_bank;
+    bit [9:0] cursor_x;
+    bit [9:0] cursor_y;
+
+    always_ff @(posedge clk) begin
+        if (register_write) begin
+            case (register_adr)
+                7'h40: begin
+                    // Image Coding Method
+                    $display("Coding %b %b", register_data[11:8], register_data[3:0]);
+                end
+                7'h41: begin
+                    // Transparency Control
+                end
+                7'h42: begin
+                    // Plane Order
+                end
+                7'h43: begin
+                    // CLUT Bank
+                    clut_bank <= register_data[1:0];
+                end
+                7'h44: begin
+                    trans_color_plane_a <= {
+                        register_data[23:18], register_data[15:10], register_data[7:2]
+                    };
+                end
+                7'h46: begin
+                    trans_color_plane_b <= {
+                        register_data[23:18], register_data[15:10], register_data[7:2]
+                    };
+                end
+                7'h47: begin
+                    mask_color_plane_a <= {
+                        register_data[23:18], register_data[15:10], register_data[7:2]
+                    };
+                end
+                7'h49: begin
+                    mask_color_plane_b <= {
+                        register_data[23:18], register_data[15:10], register_data[7:2]
+                    };
+                end
+                7'h4d: begin
+                    // Cursor Position
+                    cursor_x <= register_data[9:0];
+                    cursor_y <= register_data[21:12];
+                end
+                7'h4e: begin
+                    // Cursor Control
+                end
+
+                7'h4f: begin
+                    // Cursor Pattern
+                    cursor[register_data[19:16]] <= register_data[15:0];
+
+                    $display("Cursor %x %b", register_data[19:16], register_data[15:0]);
+                end
+
+                default: begin
+                    if (register_adr >= 7'h40) begin
+                        $display("Ignored %x", register_adr);
+                    end
+                end
+            endcase
+
+            if (register_adr <= 7'h3f) begin
+                // CLUT Color 0 to 63
+                $display("CLUT  %d  %d %d %d", {clut_bank, register_adr[5:0]},
+                         register_data[23:18], register_data[15:10], register_data[7:2]);
+                clut[{
+                    clut_bank, register_adr[5:0]
+                }] <= {
+                    register_data[23:18], register_data[15:10], register_data[7:2]
+                };
+            end
+        end
+    end
 endmodule
 

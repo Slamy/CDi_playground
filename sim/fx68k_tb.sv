@@ -230,6 +230,7 @@ module fx68k_tb;
     bit slave_irq;
     bit [7:0] irq_cooldown = 0;
 
+    /*
     uc68hc05 uc68hc05_0 (
         .clk,
         .porta_in,
@@ -244,6 +245,7 @@ module fx68k_tb;
         .ddrb,
         .ddrc
     );
+*/
 
     u3090mg u3090mg (
         .clk,
