@@ -173,3 +173,31 @@ PC_dataa=0x41
 exe_pc=0x416834
 TG68_PC=0x41
 microstate=nopnop
+
+
+[:mcd212] Scanline 311: VSR Channel 1, ICM (03), VSR (0027fe80)
+[:mcd212] Scanline 311: Chan 1: VSR[7fe80] = 40
+[:mcd212] Scanline 311: Chan 1: BMP
+[:mcd212] Scanline 32: VSR Channel 0, ICM (03), VSR (00076370)
+[:mcd212] Scanline 32: Chan 0: VSR[76370] = ff
+[:mcd212] Scanline 32: Chan 0: RLE
+[:mcd212] Byte ff w/ run length 4b at 0
+[:mcd212] Scanline 32: Chan 0: VSR[76372] = fe
+[:mcd212] Scanline 32: Chan 0: RLE
+[:mcd212] Byte fe w/ run length 05 at 75
+[:mcd212] Scanline 32: Chan 0: VSR[76374] = ff
+[:mcd212] Scanline 32: Chan 0: RLE
+[:mcd212] Byte ff w/ run length 22 at 80
+[:mcd212] Scanline 32: Chan 0: VSR[76376] = fe
+[:mcd212] Scanline 32: Chan 0: RLE
+[:mcd212] Byte fe w/ run length 0e at 114
+[:mcd212] Scanline 32: Chan 0: VSR[76378] = fd
+[:mcd212] Scanline 32: Chan 0: RLE
+[:mcd212] Byte fd w/ run length 09 at 128
+[:mcd212] Scanline 32: Chan 0: VSR[7637a] = 7c
+[:mcd212] Scanline 32: Chan 0: RLE
+[:mcd212] Byte 7c, single at 137
+[:mcd212] Scanline 32: Chan 0: VSR[7637b] = fb
+[:mcd212] Scanline 32: Chan 0: RLE
+[:mcd212] Byte fb w/ run length 06 at 138
+

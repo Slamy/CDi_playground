@@ -206,8 +206,14 @@ module mcd212 (
     bit [15:0] file0_din;
     bit file0_bus_ack;
 
-    bit [7:0] pixel;
-    bit pixel_strobe;
+    bit [7:0] file_pixel;
+    bit file_pixel_strobe  /*verilator public_flat_rd*/;
+    bit file_pixel_write  /*verilator public_flat_rd*/;
+
+    bit [7:0] rle_pixel;
+    bit rle_pixel_strobe  /*verilator public_flat_rd*/ = 1;
+    bit rle_pixel_write  /*verilator public_flat_rd*/;
+
 
     display_file_decoder file0 (
         .clk,
@@ -218,13 +224,34 @@ module mcd212 (
         .bus_ack(file0_bus_ack),
         .reload_vsr(ica0_reload_vsr),
         .vsr_in(ica0_vsr),
-        .pixel,
-        .pixel_strobe
+        .pixel(file_pixel),
+        .pixel_write(file_pixel_write),
+        .pixel_strobe(file_pixel_strobe)
     );
 
+
+    clut_rle rle (
+        .clk,
+        .reset(0),
+        .src_pixel(file_pixel),
+        .src_pixel_write(file_pixel_write),
+        .src_pixel_strobe(file_pixel_strobe),
+        .dst_pixel(rle_pixel),
+        .dst_pixel_write(rle_pixel_write),
+        .dst_pixel_strobe(rle_pixel_strobe)
+    );
+
+    assign r = {clut[rle_pixel].r, 2'b00};
+    assign g = {clut[rle_pixel].g, 2'b00};
+    assign b = {clut[rle_pixel].b, 2'b00};
+
+    /*
     always_ff @(posedge clk) begin
-        if (pixel_strobe) $display("%x  %x %x %x",pixel, clut[pixel].r, clut[pixel].g, clut[pixel].b);
+        
+        if (pixel_strobe)
+            $display("%x  %x %x %x", pixel, clut[pixel].r, clut[pixel].g, clut[pixel].b);
     end
+    */
 
     always_ff @(posedge clk) begin
         file0_din <= testram[file0_adr[19:1]];

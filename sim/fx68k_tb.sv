@@ -95,9 +95,9 @@ module fx68k_tb;
     end
 
 
-    wire [7:0] r;
-    wire [7:0] g;
-    wire [7:0] b;
+    wire [7:0] r  /*verilator public_flat_rd*/;
+    wire [7:0] g  /*verilator public_flat_rd*/;
+    wire [7:0] b  /*verilator public_flat_rd*/;
     wire hsync;
     wire vsync;
 
