@@ -9,6 +9,7 @@
 #include <csignal>
 #include <cstdio>
 #include <cstdlib>
+#include <png.h>
 
 int sim_time = 0;
 
@@ -19,6 +20,52 @@ volatile sig_atomic_t status = 0;
 static void catch_function(int signo) {
     status = signo;
 }
+const int width = 384;
+const int height = 600;
+
+uint8_t output_image[width * height * 3] = {0};
+
+void write_png_file(const char *filename) {
+    int y;
+
+    FILE *fp = fopen(filename, "wb");
+    if (!fp)
+        abort();
+
+    png_structp png = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
+    if (!png)
+        abort();
+
+    png_infop info = png_create_info_struct(png);
+    if (!info)
+        abort();
+
+    if (setjmp(png_jmpbuf(png)))
+        abort();
+
+    png_init_io(png, fp);
+
+    // Output is 8bit depth, RGBA format.
+    png_set_IHDR(png, info, width, height, 8, PNG_COLOR_TYPE_RGB, PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_DEFAULT,
+                 PNG_FILTER_TYPE_DEFAULT);
+    png_write_info(png, info);
+
+    png_bytepp row_pointers = (png_bytepp)png_malloc(png, sizeof(png_bytepp) * height);
+
+    //output_image[1] = 255;
+    for (int i = 0; i < height; i++) {
+        row_pointers[i] = &output_image[width * 3 * i];
+    }
+
+    png_write_image(png, row_pointers);
+    png_write_end(png, NULL);
+
+    free(row_pointers);
+
+    fclose(fp);
+
+    png_destroy_write_struct(&png, &info);
+}
 
 uint32_t readlongword(Vfx68k_tb &dut, uint32_t adr) {
     return (dut.rootp->fx68k_tb__DOT__mcd212_inst__DOT__testram[adr >> 1] << 16) |
@@ -28,12 +75,17 @@ void do_justwait(VerilatedVcdC &m_trace, Vfx68k_tb &dut) {
     dut.eval();
 
     dut.rootp->fx68k_tb__DOT__scc68070_0__DOT__uart_status_register |= 0x04;
-    //dut.rootp->fx68k_tb__DOT__resetcnt = 0x7FFF8;
+    // dut.rootp->fx68k_tb__DOT__resetcnt = 0x7FFF8;
 
-    kDoTrace = false;
+    kDoTrace = true;
 
-    //for (int y = 0; y < 100; y++) {
-      for (int y = 0;; y++) {
+    FILE *f = fopen("ramdump.bin", "rb");
+    assert(f);
+    fread(&dut.rootp->fx68k_tb__DOT__mcd212_inst__DOT__testram[0], 1, 1024 * 256 * 4, f);
+    fclose(f);
+
+    for (int y = 0; y < 280000; y++) {
+        //  for (int y = 0;; y++) {
         dut.rootp->fx68k_tb__DOT__clk = 0;
         dut.eval();
         if (kDoTrace) {
@@ -47,6 +99,14 @@ void do_justwait(VerilatedVcdC &m_trace, Vfx68k_tb &dut) {
             m_trace.dump(sim_time);
         }
         sim_time++;
+
+        static int output_index=0;
+        if (dut.rootp->fx68k_tb__DOT__mcd212_inst__DOT__rle_pixel_strobe) {
+            //printf("%d %d\n",(output_index/3) % 384,dut.rootp->fx68k_tb__DOT__mcd212_inst__DOT__rle_pixel);
+            output_image[output_index++] = dut.rootp->fx68k_tb__DOT__r;
+            output_image[output_index++] = dut.rootp->fx68k_tb__DOT__g;
+            output_image[output_index++] = dut.rootp->fx68k_tb__DOT__b;
+        }
 
         // Print characters sent to UART to stderr
         if ((dut.rootp->fx68k_tb__DOT__scc68070_0__DOT__uart_status_register & 0x04) == 0) {
@@ -106,24 +166,26 @@ void do_justwait(VerilatedVcdC &m_trace, Vfx68k_tb &dut) {
         if (status == SIGINT)
             break;
     }
+    /*
+        uint32_t ica1 = readlongword(dut, 0x400);
+        uint32_t ica2 = readlongword(dut, 0x40400);
 
-    uint32_t ica1 = readlongword(dut, 0x400);
-    uint32_t ica2 = readlongword(dut, 0x40400);
+        printf("ICA1 %x\n", ica1);
+        printf("ICA2 %x\n", ica2);
 
-    printf("ICA1 %x\n", ica1);
-    printf("ICA2 %x\n", ica2);
+        for (int i = 0; i < 20; i++)
+            printf("ICA1 %x\n", readlongword(dut, 0x408 + i * 4));
 
-    for (int i = 0; i < 20; i++)
-        printf("ICA1 %x\n", readlongword(dut, 0x408 + i * 4));
+        for (int i = 0; i < 20; i++)
+            printf("ICA2 %x\n", readlongword(dut, 0x40408 + i * 4));
+            */
 
-    for (int i = 0; i < 20; i++)
-        printf("ICA2 %x\n", readlongword(dut, 0x40408 + i * 4));
-
+    write_png_file("derp.png");
     /*
         for (int i = 0; i < 100; i++)
             printf("pixels %04x\n", dut.rootp->fx68k_tb__DOT__mcd212_inst__DOT__testram[(0x43c >> 1) + i]);
     */
-    uint8_t *src = (uint8_t *)&dut.rootp->fx68k_tb__DOT__mcd212_inst__DOT__testram[0x43c >> 1];
+    // uint8_t *src = (uint8_t *)&dut.rootp->fx68k_tb__DOT__mcd212_inst__DOT__testram[0x43c >> 1];
 #if 0
     for (int y = 0; y < 220; y++) {
         for (int x = 0; x < 360; x++) {
