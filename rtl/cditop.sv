@@ -14,7 +14,9 @@ module cditop
 	output reg    VBlank,
 	output reg    VSync,
 
-	output  [7:0] video
+	output  [7:0] r,
+	output  [7:0] g,
+	output  [7:0] b
 );
 
 reg   [9:0] hc;
@@ -187,9 +189,6 @@ assign video = (cos_g >= rnd_c) ? {cos_g - rnd_c, 2'b00} : 8'd0;
         .cs(attex_cs_cdic)
     );
 
-    //wire [31:0] d1  /*verilator public_flat_rd*/ = scc68070_0.tg68.tg68kdotcinst.regfile[1];
-    //wire [31:0] d0  /*verilator public_flat_rd*/ = scc68070_0.tg68.tg68kdotcinst.regfile[0];
-
     wire vsdc_intn = 1'b1;
     wire in2in;
 
@@ -211,6 +210,11 @@ assign video = (cos_g >= rnd_c) ? {cos_g - rnd_c, 2'b00} : 8'd0;
         .data_out(cpu_data_out),
         .addr
     );
+
+    // make sure that the scc68070 is not optimized away
+    assign r = addr[2] ? 8'hff : 0;
+    assign g = addr[3] ? 8'hff : 0;
+    assign b = addr[4] ? 8'hff : 0;
 
     bit [7:0] ddra;
     bit [7:0] ddrb;
@@ -293,7 +297,6 @@ assign video = (cos_g >= rnd_c) ? {cos_g - rnd_c, 2'b00} : 8'd0;
 
     always_comb begin
         slave_bus_ack = dtackslaven && !dtackslaven_q;
-
         slave_irq = irq_cooldown == 1;
     end
     always_ff @(posedge clk) begin

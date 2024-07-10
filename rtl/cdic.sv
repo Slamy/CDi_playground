@@ -44,6 +44,7 @@ module cdic (
     end
 
     always_comb begin
+        dout = 16'h0;
 
         case (address[13:1])
             13'h001FFA: begin  // 0x3FF4  ABUF	Audio buffer register
@@ -65,7 +66,8 @@ module cdic (
                 dout = 16'h0;
             end
             default: begin
-                dout = ram[address[13:1]];
+                // TODO fix this. Must be clocked for proper block ram
+                //dout = ram[address[13:1]];
             end
         endcase
     end
