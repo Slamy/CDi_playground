@@ -18,7 +18,6 @@ module uc68hc05 (
     output bit [7:0] ddrc
 );
 
-    bit rst = 0;
     bit [7:0] datain = 0;
     wire [15:0] addr;
     bit [15:0] lastaddr;
@@ -30,7 +29,7 @@ module uc68hc05 (
     bit [7:0] memory[8192];
 
     initial begin
-        $readmemh("slave.mem", memory);
+        //$readmemh("slave.mem", memory);
     end
 
     // Readback of PORTx registers depend on DDRx
@@ -43,7 +42,7 @@ module uc68hc05 (
 
     genvar i;
     generate
-        for (i = 0; i < 8; i++) begin
+        for (i = 0; i < 8; i++) begin : ports
             assign porta_mix[i] = ddra[i] ? porta_out[i] : porta_in[i];
             assign portb_mix[i] = ddrb[i] ? portb_out[i] : portb_in[i];
             assign portc_mix[i] = ddrc[i] ? portc_out[i] : portc_in[i];
@@ -204,20 +203,17 @@ module uc68hc05 (
 
     end
 
-    initial begin
-        @(posedge clk) @(posedge clk) rst = 1;
-    end
 
     UR6805 slave_core (
         .clk(!clk),
-        .rst,
+        .rst(!reset),
         .extirq(irq),
-        .timerirq,
-        .datain,
-        .addr,
-        .wr,
-        .state,
-        .dataout
+        .timerirq(timerirq),
+        .datain(datain),
+        .addr(addr),
+        .wr(wr),
+        .state(state),
+        .dataout(dataout)
     );
 
 endmodule

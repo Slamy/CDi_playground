@@ -125,7 +125,7 @@ module scc68070 (
 
 
     tg68kdotc_verilog_wrapper tg68 (
-        .clk,
+        .clk(clk),
         .nReset(!reset),
         .clkena_in(clkena_in),
         .data_in(internal_data_in),
@@ -135,12 +135,12 @@ module scc68070 (
         .addr_out(internal_addr),
         .FC(fc),
         .data_write(data_out),
-        .busstate,
+        .busstate(busstate),
         .nWr(internal_nWr),
         .nUDS(internal_UDSn),
         .nLDS(internal_LDSn),
-        .nResetOut,
-        .skipFetch
+        .nResetOut(nResetOut),
+        .skipFetch(skipFetch)
     );
 
     struct packed {

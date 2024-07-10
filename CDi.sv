@@ -278,7 +278,7 @@ wire VSync;
 wire ce_pix;
 wire [7:0] video;
 
-mycore mycore
+cditop cditop
 (
 	.clk(clk_sys),
 	.reset(reset),
