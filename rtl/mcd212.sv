@@ -4,6 +4,7 @@
 
 module mcd212 (
     input clk,
+    input reset,
     input [22:1] address,
     input [15:0] din,
     output bit [15:0] dout,
@@ -36,8 +37,10 @@ module mcd212 (
     wire cs_early_rom = early_rom_cnt <= 10;
     always @(posedge clk) begin
         // first 4 memory accesses must be mapped to ROM
-        if (cs && uds) begin
-            if (cs_early_rom) early_rom_cnt <= early_rom_cnt + 1;
+        if (reset) begin
+            early_rom_cnt <= 0;
+        end else if (cs && uds && cs_early_rom) begin
+            early_rom_cnt <= early_rom_cnt + 1;
         end
 
     end

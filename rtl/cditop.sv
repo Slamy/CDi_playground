@@ -101,7 +101,12 @@ assign video = (cos_g >= rnd_c) ? {cos_g - rnd_c, 2'b00} : 8'd0;
 
     // 512 kB of ROM
     // TODO remove this after proper integration of ROM
-    bit [15:0] rom[16]  /*verilator public_flat_rw*/;
+    bit [15:0] rom[23]  /*verilator public_flat_rw*/;
+
+    initial begin
+        $readmemh("testrom.mem", rom);
+    end
+
 
     // 8 kB of NVRAM
     // TODO set size again to 8192 when inferred as block ram
@@ -169,6 +174,7 @@ assign video = (cos_g >= rnd_c) ? {cos_g - rnd_c, 2'b00} : 8'd0;
 
     mcd212 mcd212_inst (
         .clk,
+        .reset,
         .address(addr[22:1]),
         .din(cpu_data_out),
         .dout(mcd212_dout),
