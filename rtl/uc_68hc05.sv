@@ -5,6 +5,7 @@
 
 module uc68hc05 (
     input clk,
+    input reset,
     input [7:0] porta_in,
     output bit [7:0] porta_out,
     input [7:0] portb_in,
@@ -18,7 +19,9 @@ module uc68hc05 (
     output bit [7:0] ddrc
 );
 
-    bit [7:0] datain = 0;
+    bit [7:0] datain;
+    bit [7:0] memory_readout = 0;
+
     wire [15:0] addr;
     bit [15:0] lastaddr;
     wire wr;
@@ -27,10 +30,11 @@ module uc68hc05 (
 
     bit fail = 0;
     bit [7:0] memory[8192];
-
+`ifdef VERILATOR
     initial begin
-        //$readmemh("slave.mem", memory);
+        $readmemh("slave.mem", memory);
     end
+`endif
 
     // Readback of PORTx registers depend on DDRx
     // With a pin being 1, provided the output value
@@ -73,6 +77,80 @@ module uc68hc05 (
         bit [4:0] reserved;
     } timer_status_register;
 
+    always @(posedge clk) begin
+        if (!wr) memory[addr[12:0]] <= dataout;
+        else memory_readout <= memory[addr[12:0]];
+    end
+
+    always_comb begin
+        datain = memory_readout;
+        case (addr)
+            16'h0000: begin
+                datain = porta_mix;
+                // $display("PORTA %x %d %x", dataout, wr, porta_mix);
+            end
+            16'h0001: begin
+                datain = portb_mix;
+                // $display("PORTB %x %d %x", dataout, wr, portb_mix);
+            end
+            16'h0002: begin
+                datain = portc_mix;
+                // $display("PORTC %x %d %x", dataout, wr, portc_mix);
+            end
+            16'h0003: begin
+                // Only input for PORTD
+                datain = portd_in;
+                // $display("PORTD %x %d %x", dataout, wr, portd_in);
+            end
+            16'h0004: begin
+                datain = ddra;
+                // $display("DDRA %x %d", dataout, wr);
+            end
+            16'h0005: begin
+                datain = ddrb;
+                // $display("DDRB %x %d", dataout, wr);
+            end
+            16'h0006: begin
+                datain = ddrc;
+                // $display("DDRC %x %d", dataout, wr);
+            end
+            16'h000b: begin
+
+                datain[6:0] = 0;
+                datain[7]   = spi_transfer_complete;
+            end
+
+            16'h000c: begin
+                datain = serial_periph_miso_data;
+            end
+
+            16'h0010: begin
+                //$display("SERIAL COM STATUS %x %d", dataout, wr);
+                datain = 8'b11000000;
+            end
+
+            16'h0013: begin
+                //$display("TIMER STATUS %x %x", dataout, wr);
+                datain = timer_status_register;
+            end
+
+            16'h001a: begin
+                // Alternate counter High
+                datain = free_running_counter[17:10];
+            end
+            16'h001b: begin
+                datain = latched_counter;
+            end
+            16'h0057: begin  // TODO Patch to avoid SPI access as slave is missing
+                datain = 8'hff;
+            end
+            16'h0099: begin  // TODO Patch to set fixed version when asked
+                datain = 8'hf0;
+            end
+            default: begin  // do nothing
+            end
+        endcase
+    end
     always @(posedge clk) begin
         lastaddr <= addr;
 
@@ -117,50 +195,40 @@ module uc68hc05 (
         case (addr)
             16'h0000: begin
                 if (!wr) porta_out <= dataout;
-                else datain <= porta_mix;
                 // $display("PORTA %x %d %x", dataout, wr, porta_mix);
             end
             16'h0001: begin
                 if (!wr) portb_out <= dataout;
-                else datain <= portb_mix;
                 // $display("PORTB %x %d %x", dataout, wr, portb_mix);
             end
             16'h0002: begin
                 if (!wr) portc_out <= dataout;
-                else datain <= portc_mix;
                 // $display("PORTC %x %d %x", dataout, wr, portc_mix);
             end
             16'h0003: begin
                 // Only input for PORTD
-                datain <= portd_in;
                 // $display("PORTD %x %d %x", dataout, wr, portd_in);
             end
             16'h0004: begin
                 if (!wr) ddra <= dataout;
-                else datain <= ddra;
                 // $display("DDRA %x %d", dataout, wr);
             end
             16'h0005: begin
                 if (!wr) ddrb <= dataout;
-                else datain <= ddrb;
                 // $display("DDRB %x %d", dataout, wr);
             end
             16'h0006: begin
                 if (!wr) ddrc <= dataout;
-                else datain <= ddrc;
                 // $display("DDRC %x %d", dataout, wr);
             end
             16'h000b: begin
                 $display("SERIAL PERIPH STATUS %x %x %x %x", dataout, wr, spi_transfer_complete,
                          lastaddr);
 
-                datain[6:0] <= 0;
-                datain[7]   <= spi_transfer_complete;
             end
 
             16'h000c: begin
                 $display("SERIAL PERIPH DATA %x %x %x", dataout, wr, serial_periph_miso_data);
-                datain <= serial_periph_miso_data;
 
                 if (!wr) begin
                     spi_transfer_complete <= 1;
@@ -170,34 +238,25 @@ module uc68hc05 (
 
             16'h0010: begin
                 //$display("SERIAL COM STATUS %x %d", dataout, wr);
-                datain <= 8'b11000000;
             end
 
             16'h0013: begin
                 //$display("TIMER STATUS %x %x", dataout, wr);
-                datain <= timer_status_register;
             end
 
             16'h001a: begin
                 // Alternate counter High
-                datain <= free_running_counter[17:10];
                 latched_counter <= free_running_counter[9:2];
             end
             16'h001b: begin
-                datain <= latched_counter;
             end
             16'h0057: begin  // TODO Patch to avoid SPI access as slave is missing
-                datain <= 8'hff;
             end
             16'h0099: begin  // TODO Patch to set fixed version when asked
-                datain <= 8'hf0;
             end
             default: begin
                 // The rest is just RAM and ROM
                 if (addr[15:13] != 0) fail <= 1;
-
-                if (!wr) memory[addr[12:0]] <= dataout;
-                else datain <= memory[addr[12:0]];
             end
         endcase
 

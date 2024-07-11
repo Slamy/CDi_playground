@@ -37,8 +37,8 @@ module cdic (
                 end
             endcase
         end else if (cs) begin
-                $display("CDIC %x", address[13:1]);
-            
+            $display("CDIC %x", address[13:1]);
+
         end
 
     end
@@ -67,7 +67,9 @@ module cdic (
             end
             default: begin
                 // TODO fix this. Must be clocked for proper block ram
-                //dout = ram[address[13:1]];
+`ifdef VERILATOR
+                dout = ram[address[13:1]];
+`endif
             end
         endcase
     end

@@ -275,6 +275,7 @@ assign video = (cos_g >= rnd_c) ? {cos_g - rnd_c, 2'b00} : 8'd0;
 
     uc68hc05 uc68hc05_0 (
         .clk,
+        .reset,
         .porta_in,
         .porta_out,
         .portb_in,

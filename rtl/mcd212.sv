@@ -16,7 +16,11 @@ module mcd212 (
 );
 
     // TODO remove this
+`ifdef VERILATOR
+    bit [15:0] testram[512*1024]  /*verilator public_flat_rw*/;
+`else
     bit [15:0] testram[512]  /*verilator public_flat_rw*/;
+`endif
 
     wire [22:0] addressb = {address[22:1], 1'b0};
     // implementation of memory map according to MCD212 datasheet
@@ -112,7 +116,7 @@ module mcd212 (
         else if (uds && cs_ram && write_strobe)
             $display("Write Upper Byte RAM %x %x", addressb, din);
         */
-        
+
         if ((lds || uds) && cs_channel1 && write_strobe)
             $display("Write Channel 1 %x %x", addressb, din);
 

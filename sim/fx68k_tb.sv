@@ -221,6 +221,7 @@ module fx68k_tb;
 
     uc68hc05 uc68hc05_0 (
         .clk,
+        .reset,
         .porta_in,
         .porta_out,
         .portb_in,
