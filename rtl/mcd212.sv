@@ -19,7 +19,7 @@ module mcd212 (
 `ifdef VERILATOR
     bit [15:0] testram[512*1024]  /*verilator public_flat_rw*/;
 `else
-    bit [15:0] testram[512]  /*verilator public_flat_rw*/;
+    bit [15:0] testram[16]  /*verilator public_flat_rw*/;
 `endif
 
     wire [22:0] addressb = {address[22:1], 1'b0};

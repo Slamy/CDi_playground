@@ -2,7 +2,8 @@
 
 module fx68k_tb;
     bit clk  /*verilator public_flat_rw*/;
-    bit reset = 1;  // External sync reset on emulated system
+    bit reset_slave = 1;  // External sync reset on emulated system
+    bit reset_68k = 1;  // External sync reset on emulated system
 
     wire write_strobe;
     wire as;
@@ -127,7 +128,7 @@ module fx68k_tb;
 
     scc68070 scc68070_0 (
         .clk,
-        .reset,  // External sync reset on emulated system
+        .reset(reset_68k),  // External sync reset on emulated system
         .write_strobe,
         .as,
         .lds,
@@ -148,8 +149,9 @@ module fx68k_tb;
 
     always_ff @(posedge clk) begin
         resetcnt <= resetcnt + 1;
-        if (resetcnt[19]) reset <= 0;
-        //if (resetcnt[3]) reset <= 0;
+        if (resetcnt[19]) reset_68k <= 0;
+        if (resetcnt[3]) reset_slave <= 0;
+
     end
     initial begin
         //reset = 1;
@@ -221,7 +223,7 @@ module fx68k_tb;
 
     uc68hc05 uc68hc05_0 (
         .clk,
-        .reset,
+        .reset(reset_slave),
         .porta_in,
         .porta_out,
         .portb_in,

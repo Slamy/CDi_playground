@@ -12,7 +12,7 @@
 
 int sim_time = 0;
 
-static bool kDoTrace{true};
+static bool kDoTrace{false};
 
 volatile sig_atomic_t status = 0;
 

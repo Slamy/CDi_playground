@@ -100,10 +100,12 @@ assign video = (cos_g >= rnd_c) ? {cos_g - rnd_c, 2'b00} : 8'd0;
     wire [23:0] addr_byte = {addr[23:1], 1'b0};
 
     // 512 kB of ROM
-    bit [15:0] rom[256]  /*verilator public_flat_rw*/;
+    // TODO remove this after proper integration of ROM
+    bit [15:0] rom[16]  /*verilator public_flat_rw*/;
 
     // 8 kB of NVRAM
-    bit [7:0] nvram[8192]  /*verilator public_flat_rw*/;
+    // TODO set size again to 8192 when inferred as block ram
+    bit [7:0] nvram[16]  /*verilator public_flat_rw*/;
 
     wire mcd212_bus_ack;
     wire [15:0] mcd212_dout;
@@ -214,7 +216,7 @@ assign video = (cos_g >= rnd_c) ? {cos_g - rnd_c, 2'b00} : 8'd0;
     // make sure that the scc68070 is not optimized away
     assign r = addr[2] ? 8'hff : 0;
     assign g = addr[3] ? 8'hff : 0;
-    assign b = addr[4] ? 8'hff : 0;
+    assign b = 8'hff;
 
     bit [7:0] ddra;
     bit [7:0] ddrb;
@@ -237,7 +239,7 @@ assign video = (cos_g >= rnd_c) ? {cos_g - rnd_c, 2'b00} : 8'd0;
         if (csrom) begin
             data_in = rom[addr[18:1]];
         end else if (attex_cs_slave) begin
-            if (porta_out == 8'h01) data_in = 16'h0202;  // TODO Slave antwortet falsch
+            if (porta_out == 8'h01) data_in = 16'h0202;  // TODO Slave has wrong answer
             else data_in = {porta_out, porta_out};
             bus_ack = slave_bus_ack;
 
