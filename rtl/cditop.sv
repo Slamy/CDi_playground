@@ -69,6 +69,8 @@ module cditop (
         uds_q <= uds;
         lds_q <= lds;
         data_in_q <= data_in;
+        
+        ce_pix <= 1;
 
         if (bus_ack) begin
             if ((lds || uds) && attex_cs_cdic && write_strobe)

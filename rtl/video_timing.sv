@@ -48,6 +48,7 @@ module video_timing (
         h_total  = h_total * ClksPerCycle;
         h_active = h_active * ClksPerCycle;
         h_start  = h_start * ClksPerCycle;
+        h_sync = h_sync * ClksPerCycle;
     end
 
     // vertical timing according to Table 5-6
@@ -104,9 +105,9 @@ module video_timing (
         vsync <= video_y < v_sync;
         new_frame <= video_x == 0 && video_y == 0;
         new_line <= video_x == 0;
-        hblank <= video_x >= h_start && video_x < (h_start + h_active);
-        vblank <= video_y >= v_start && video_y < (v_start + v_active);
-        new_pixel <= (cm ? video_x[1:0] == 0 : video_x[2:0] == 0) && hblank && vblank;
+        hblank <= !(video_x >= h_start && video_x < (h_start + h_active));
+        vblank <= !(video_y >= v_start && video_y < (v_start + v_active));
+        new_pixel <= (cm ? video_x[1:0] == 0 : video_x[2:0] == 0) && !hblank && !vblank;
     end
 
     int pixels_per_line = 0;

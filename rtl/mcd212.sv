@@ -261,7 +261,7 @@ module mcd212 (
         .pixel(file_pixel),
         .pixel_write(file_pixel_write),
         .pixel_strobe(file_pixel_strobe),
-        .read_pixels(vblank)
+        .read_pixels(!vblank)
     );
 
 
