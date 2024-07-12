@@ -4,6 +4,7 @@
 
 module mcd212 (
     input clk,
+    input reset,
     input [22:1] cpu_address,
     input [15:0] cpu_din,
     output bit [15:0] cpu_dout,

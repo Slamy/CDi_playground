@@ -104,6 +104,7 @@ module fx68k_tb;
 
     mcd212 mcd212_inst (
         .clk,
+        .reset(reset_68k),
         .cpu_address(addr[22:1]),
         .cpu_din(cpu_data_out),
         .cpu_dout(mcd212_dout),
