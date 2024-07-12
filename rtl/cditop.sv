@@ -119,7 +119,9 @@ module cditop (
         .g,
         .b,
         .hsync(HSync),
-        .vsync(VSync)
+        .vsync(VSync),
+        .hblank(HBlank),
+        .vblank(VBlank)
     );
 
     cdic cdic_inst (
@@ -156,9 +158,9 @@ module cditop (
     );
 
     // make sure that the scc68070 is not optimized away
-    assign r = addr[2] ? 8'hff : 0;
-    assign g = addr[3] ? 8'hff : 0;
-    assign b = 8'hff;
+    //assign r = addr[2] ? 8'hff : 0;
+    //assign g = addr[3] ? 8'hff : 0;
+    //assign b = 8'hff;
 
     bit [7:0] ddra;
     bit [7:0] ddrb;

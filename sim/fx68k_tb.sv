@@ -49,7 +49,7 @@ module fx68k_tb;
     wire bus_err_ram_area2 = (addr_byte >= 24'hf00000);
     wire bus_err = (bus_err_ram_area1 || bus_err_ram_area2) && as && (lds || uds);
 
-    wire trap_addr_error  /*verilator public_flat_rd*/ = scc68070_0.tg68.tg68kdotcinst.trap_addr_error;
+    //wire trap_addr_error  /*verilator public_flat_rd*/ = scc68070_0.tg68.tg68kdotcinst.trap_addr_error;
     always @(posedge clk) begin
         uds_q <= uds;
         lds_q <= lds;
@@ -101,6 +101,8 @@ module fx68k_tb;
     wire [7:0] b  /*verilator public_flat_rd*/;
     wire hsync;
     wire vsync;
+    wire hblank;
+    wire vblank;
 
     mcd212 mcd212_inst (
         .clk,
@@ -118,7 +120,9 @@ module fx68k_tb;
         .g,
         .b,
         .hsync,
-        .vsync
+        .vsync,
+        .hblank,
+        .vblank
     );
 
     cdic cdic_inst (
@@ -132,11 +136,9 @@ module fx68k_tb;
         .cs(attex_cs_cdic)
     );
 
-    //wire [31:0] d1  /*verilator public_flat_rd*/ = scc68070_0.tg68.tg68kdotcinst.regfile[1];
-    //wire [31:0] d0  /*verilator public_flat_rd*/ = scc68070_0.tg68.tg68kdotcinst.regfile[0];
-
     wire vsdc_intn = 1'b1;
     wire in2in;
+    /*
 
     scc68070 scc68070_0 (
         .clk,
@@ -156,7 +158,7 @@ module fx68k_tb;
         .data_out(cpu_data_out),
         .addr
     );
-
+*/
     bit [19:0] resetcnt  /*verilator public_flat_rw*/ = 0;
 
     always_ff @(posedge clk) begin

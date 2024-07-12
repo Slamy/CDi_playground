@@ -13,14 +13,14 @@
 
 int sim_time = 0;
 
-static bool kDoTrace{false};
+static bool kDoTrace{true};
 
 volatile sig_atomic_t status = 0;
 
 static void catch_function(int signo) {
     status = signo;
 }
-const int width = 384;
+const int width = 120*16*2;
 const int height = 600;
 
 uint8_t output_image[width * height * 3] = {0};
@@ -74,8 +74,7 @@ uint32_t readlongword(Vfx68k_tb &dut, uint32_t adr) {
 void do_justwait(VerilatedVcdC &m_trace, Vfx68k_tb &dut) {
     dut.eval();
 
-    dut.rootp->fx68k_tb__DOT__scc68070_0__DOT__uart_status_register |= 0x04;
-    // dut.rootp->fx68k_tb__DOT__resetcnt = 0x7FFF8;
+    dut.rootp->fx68k_tb__DOT__resetcnt = 0x7FFF8;
 
     kDoTrace = true;
 
@@ -84,7 +83,7 @@ void do_justwait(VerilatedVcdC &m_trace, Vfx68k_tb &dut) {
     fread(&dut.rootp->fx68k_tb__DOT__mcd212_inst__DOT__testram[0], 1, 1024 * 256 * 4, f);
     fclose(f);
 
-    for (int y = 0; y < 280000; y++) {
+    for (int y = 0; y < 1880000; y++) {
         //  for (int y = 0;; y++) {
         dut.rootp->fx68k_tb__DOT__clk = 0;
         dut.eval();
@@ -101,23 +100,15 @@ void do_justwait(VerilatedVcdC &m_trace, Vfx68k_tb &dut) {
         sim_time++;
 
         static int output_index=0;
-        if (dut.rootp->fx68k_tb__DOT__mcd212_inst__DOT__rle_pixel_strobe) {
+        //if (dut.rootp->fx68k_tb__DOT__mcd212_inst__DOT__rle_pixel_strobe) {
             //printf("%d %d\n",(output_index/3) % 384,dut.rootp->fx68k_tb__DOT__mcd212_inst__DOT__rle_pixel);
             output_image[output_index++] = dut.rootp->fx68k_tb__DOT__r;
             output_image[output_index++] = dut.rootp->fx68k_tb__DOT__g;
             output_image[output_index++] = dut.rootp->fx68k_tb__DOT__b;
-        }
-
-        // Print characters sent to UART to stderr
-        if ((dut.rootp->fx68k_tb__DOT__scc68070_0__DOT__uart_status_register & 0x04) == 0) {
-            dut.rootp->fx68k_tb__DOT__scc68070_0__DOT__uart_status_register |= 0x04;
-            // fprintf(stderr, " -> Uart Write %x\n",
-            // dut.rootp->fx68k_tb__DOT__scc68070_0__DOT__uart_transmit_holding_register);
-            fputc(dut.rootp->fx68k_tb__DOT__scc68070_0__DOT__uart_transmit_holding_register, stderr);
-        }
+        //}
 
         if ((y % 100000) == 0) {
-            printf("%d %d\n", y, dut.rootp->fx68k_tb__DOT__scc68070_0__DOT__timer0);
+            printf("%d\n", y);
         }
         /*
         printf("%x %x %x %x\n",
@@ -232,364 +223,6 @@ void do_justwait(VerilatedVcdC &m_trace, Vfx68k_tb &dut) {
 #endif
 
     // printf("ICA1 %x\n",dut.rootp->fx68k_tb__DOT__mcd212_inst__DOT__testram[ica1>>1]);
-}
-
-void do_selftest_dram(VerilatedVcdC &m_trace, Vfx68k_tb &dut) {
-    dut.rootp->fx68k_tb__DOT__scc68070_0__DOT__uart_status_register |= 0x04;
-
-    // for (int y = 0; y < 1000; y++) {
-    for (int y = 0;; y++) {
-        dut.rootp->fx68k_tb__DOT__clk = 0;
-        dut.eval();
-        if (kDoTrace) {
-            m_trace.dump(sim_time);
-        }
-        sim_time++;
-
-        if (y == 1000) {
-            printf("Space!\n");
-            dut.rootp->fx68k_tb__DOT__scc68070_0__DOT__uart_receive_holding_register = ' ';
-            dut.rootp->fx68k_tb__DOT__scc68070_0__DOT__uart_status_register |= 1;
-        }
-
-        if (y == 8000) {
-            printf("Press A!\n");
-            dut.rootp->fx68k_tb__DOT__scc68070_0__DOT__uart_receive_holding_register = 'A';
-            dut.rootp->fx68k_tb__DOT__scc68070_0__DOT__uart_status_register |= 1;
-        }
-
-        if (y == 19000) {
-            printf("Press 4!\n");
-            dut.rootp->fx68k_tb__DOT__scc68070_0__DOT__uart_receive_holding_register = '4';
-            dut.rootp->fx68k_tb__DOT__scc68070_0__DOT__uart_status_register |= 1;
-        }
-
-        if (1) {
-            if (y == 21000) {
-                printf("Press!\n");
-                dut.rootp->fx68k_tb__DOT__scc68070_0__DOT__uart_receive_holding_register = 'Y';
-                dut.rootp->fx68k_tb__DOT__scc68070_0__DOT__uart_status_register |= 1;
-            }
-        } else {
-            if (y == 21000) {
-                printf("Press!\n");
-                dut.rootp->fx68k_tb__DOT__scc68070_0__DOT__uart_receive_holding_register = 'N';
-                dut.rootp->fx68k_tb__DOT__scc68070_0__DOT__uart_status_register |= 1;
-            }
-
-            if (y == 22000) {
-                printf("Press!\n");
-                dut.rootp->fx68k_tb__DOT__scc68070_0__DOT__uart_receive_holding_register = 'Y';
-                dut.rootp->fx68k_tb__DOT__scc68070_0__DOT__uart_status_register |= 1;
-            }
-        }
-
-        /*
-        if (y == 1000) {
-            kDoTrace = false;
-            printf("Trace Off!\n");
-        }
-
-        if (y == 3430000) {
-            kDoTrace = true;
-            printf("Trace On!\n");
-        }
-
-        if (y == 3440000) {
-            kDoTrace = false;
-            printf("Trace Off!\n");
-        }*/
-
-        if ((y % 10000) == 0) {
-            // printf("%d\n", y);
-        }
-
-        // Print characters sent to UART to stderr
-        if ((dut.rootp->fx68k_tb__DOT__scc68070_0__DOT__uart_status_register & 0x04) == 0) {
-            dut.rootp->fx68k_tb__DOT__scc68070_0__DOT__uart_status_register |= 0x04;
-            // fprintf(stderr, " -> Uart Write %x\n",
-            // dut.rootp->fx68k_tb__DOT__scc68070_0__DOT__uart_transmit_holding_register);
-            fputc(dut.rootp->fx68k_tb__DOT__scc68070_0__DOT__uart_transmit_holding_register, stderr);
-        }
-
-        dut.rootp->fx68k_tb__DOT__clk = 1;
-        dut.eval();
-        if (kDoTrace) {
-            m_trace.dump(sim_time);
-            sim_time++;
-        }
-
-        if (status == SIGINT)
-            break;
-    }
-}
-
-void do_selftest_slave(VerilatedVcdC &m_trace, Vfx68k_tb &dut) {
-    dut.rootp->fx68k_tb__DOT__scc68070_0__DOT__uart_status_register |= 0x04;
-    int y = 0;
-
-    for (; y < 289000; y++) {
-        dut.rootp->fx68k_tb__DOT__clk = 0;
-        dut.eval();
-        if (kDoTrace) {
-            m_trace.dump(sim_time);
-            sim_time++;
-        }
-
-        if (y == 1000) {
-            printf("Space!\n");
-            dut.rootp->fx68k_tb__DOT__scc68070_0__DOT__uart_receive_holding_register = ' ';
-            dut.rootp->fx68k_tb__DOT__scc68070_0__DOT__uart_status_register |= 1;
-        }
-
-        if (y == 70000) {
-            printf("Press!\n");
-            dut.rootp->fx68k_tb__DOT__scc68070_0__DOT__uart_receive_holding_register = 'A';
-            dut.rootp->fx68k_tb__DOT__scc68070_0__DOT__uart_status_register |= 1;
-        }
-
-        if (y == 240000) {
-            printf("Press!\n");
-            dut.rootp->fx68k_tb__DOT__scc68070_0__DOT__uart_receive_holding_register = '6';
-            dut.rootp->fx68k_tb__DOT__scc68070_0__DOT__uart_status_register |= 1;
-        }
-
-        // Print characters sent to UART to stderr
-        if ((dut.rootp->fx68k_tb__DOT__scc68070_0__DOT__uart_status_register & 0x04) == 0) {
-            dut.rootp->fx68k_tb__DOT__scc68070_0__DOT__uart_status_register |= 0x04;
-            // fprintf(stderr, " -> Uart Write %x\n",
-            // dut.rootp->fx68k_tb__DOT__scc68070_0__DOT__uart_transmit_holding_register);
-            fputc(dut.rootp->fx68k_tb__DOT__scc68070_0__DOT__uart_transmit_holding_register, stderr);
-        }
-
-        dut.rootp->fx68k_tb__DOT__clk = 1;
-        dut.eval();
-        if (kDoTrace) {
-            m_trace.dump(sim_time);
-            sim_time++;
-        }
-
-        if (status == SIGINT)
-            break;
-    }
-
-    for (;; y++) {
-
-        dut.rootp->fx68k_tb__DOT__clk = 0;
-        dut.eval();
-        if (kDoTrace && y >= 18100000) {
-            m_trace.dump(sim_time);
-            sim_time++;
-        }
-
-        dut.rootp->fx68k_tb__DOT__clk = 1;
-        dut.eval();
-        if (kDoTrace && y >= 18100000) {
-            m_trace.dump(sim_time);
-            sim_time++;
-        }
-
-        if ((y % 100000) == 0) {
-            printf("%d\n", y);
-        }
-
-        // Print characters sent to UART to stderr
-        if ((dut.rootp->fx68k_tb__DOT__scc68070_0__DOT__uart_status_register & 0x04) == 0) {
-            dut.rootp->fx68k_tb__DOT__scc68070_0__DOT__uart_status_register |= 0x04;
-            // fprintf(stderr, " -> Uart Write %x\n",
-            // dut.rootp->fx68k_tb__DOT__scc68070_0__DOT__uart_transmit_holding_register);
-            fputc(dut.rootp->fx68k_tb__DOT__scc68070_0__DOT__uart_transmit_holding_register, stderr);
-        }
-
-        if (status == SIGINT)
-            break;
-    }
-}
-
-void do_selftest_cdic(VerilatedVcdC &m_trace, Vfx68k_tb &dut) {
-    dut.rootp->fx68k_tb__DOT__scc68070_0__DOT__uart_status_register |= 0x04;
-    int y = 0;
-
-    for (; y < 289000; y++) {
-        dut.rootp->fx68k_tb__DOT__clk = 0;
-        dut.eval();
-        if (kDoTrace) {
-            m_trace.dump(sim_time);
-            sim_time++;
-        }
-
-        if (y == 1000) {
-            printf("Space!\n");
-            dut.rootp->fx68k_tb__DOT__scc68070_0__DOT__uart_receive_holding_register = ' ';
-            dut.rootp->fx68k_tb__DOT__scc68070_0__DOT__uart_status_register |= 1;
-        }
-
-        if (y == 70000) {
-            printf("Press!\n");
-            dut.rootp->fx68k_tb__DOT__scc68070_0__DOT__uart_receive_holding_register = 'A';
-            dut.rootp->fx68k_tb__DOT__scc68070_0__DOT__uart_status_register |= 1;
-        }
-
-        if (y == 240000) {
-            printf("Press!\n");
-            dut.rootp->fx68k_tb__DOT__scc68070_0__DOT__uart_receive_holding_register = '5';
-            dut.rootp->fx68k_tb__DOT__scc68070_0__DOT__uart_status_register |= 1;
-        }
-
-        // Print characters sent to UART to stderr
-        if ((dut.rootp->fx68k_tb__DOT__scc68070_0__DOT__uart_status_register & 0x04) == 0) {
-            dut.rootp->fx68k_tb__DOT__scc68070_0__DOT__uart_status_register |= 0x04;
-            // fprintf(stderr, " -> Uart Write %x\n",
-            // dut.rootp->fx68k_tb__DOT__scc68070_0__DOT__uart_transmit_holding_register);
-            fputc(dut.rootp->fx68k_tb__DOT__scc68070_0__DOT__uart_transmit_holding_register, stderr);
-        }
-
-        dut.rootp->fx68k_tb__DOT__clk = 1;
-        dut.eval();
-        if (kDoTrace) {
-            m_trace.dump(sim_time);
-            sim_time++;
-        }
-
-        if (status == SIGINT)
-            break;
-    }
-
-    for (;; y++) {
-
-        dut.rootp->fx68k_tb__DOT__clk = 0;
-        dut.eval();
-        if (kDoTrace) {
-            m_trace.dump(sim_time);
-            sim_time++;
-        }
-
-        dut.rootp->fx68k_tb__DOT__clk = 1;
-        dut.eval();
-        if (kDoTrace) {
-            m_trace.dump(sim_time);
-            sim_time++;
-        }
-
-        if ((y % 100000) == 0) {
-            printf("%d\n", y);
-        }
-
-        if ((dut.rootp->fx68k_tb__DOT__scc68070_0__DOT__uart_status_register & 0x04) == 0) {
-            dut.rootp->fx68k_tb__DOT__scc68070_0__DOT__uart_status_register |= 0x04;
-            // fprintf(stderr, " -> Uart Write %x\n",
-            // dut.rootp->fx68k_tb__DOT__scc68070_0__DOT__uart_transmit_holding_register);
-            fputc(dut.rootp->fx68k_tb__DOT__scc68070_0__DOT__uart_transmit_holding_register, stderr);
-        }
-
-        if (status == SIGINT)
-            break;
-    }
-}
-
-void do_selftest_lowlevelpcb(VerilatedVcdC &m_trace, Vfx68k_tb &dut) {
-    dut.rootp->fx68k_tb__DOT__scc68070_0__DOT__uart_status_register |= 0x04;
-    int y = 0;
-
-    uint16_t backup[3];
-
-    dut.eval();
-
-    backup[0] = dut.rootp->fx68k_tb__DOT__rom[0x14a6 >> 1];
-    backup[1] = dut.rootp->fx68k_tb__DOT__rom[0x15ce >> 1];
-    backup[2] = dut.rootp->fx68k_tb__DOT__rom[0x1614 >> 1];
-
-    dut.rootp->fx68k_tb__DOT__rom[0x14a6 >> 1] = 0;
-    dut.rootp->fx68k_tb__DOT__rom[0x15ce >> 1] = 0;
-    dut.rootp->fx68k_tb__DOT__rom[0x1614 >> 1] = 0;
-
-    for (; y < 289000; y++) {
-        dut.rootp->fx68k_tb__DOT__clk = 0;
-        dut.eval();
-        if (kDoTrace) {
-            m_trace.dump(sim_time);
-            sim_time++;
-        }
-
-        if (y == 9000) {
-            printf("Space!\n");
-            dut.rootp->fx68k_tb__DOT__scc68070_0__DOT__uart_receive_holding_register = 0x06;
-            dut.rootp->fx68k_tb__DOT__scc68070_0__DOT__uart_status_register |= 1;
-        }
-
-        if (y == 19000) {
-            printf("Space!\n");
-            dut.rootp->fx68k_tb__DOT__scc68070_0__DOT__uart_receive_holding_register = 'N';
-            dut.rootp->fx68k_tb__DOT__scc68070_0__DOT__uart_status_register |= 1;
-        }
-
-        // Print characters sent to UART to stderr
-        if ((dut.rootp->fx68k_tb__DOT__scc68070_0__DOT__uart_status_register & 0x04) == 0) {
-            dut.rootp->fx68k_tb__DOT__scc68070_0__DOT__uart_status_register |= 0x04;
-            printf(" -> Uart Write %x %c\n", dut.rootp->fx68k_tb__DOT__scc68070_0__DOT__uart_transmit_holding_register,
-                   dut.rootp->fx68k_tb__DOT__scc68070_0__DOT__uart_transmit_holding_register);
-            // fputc(dut.rootp->fx68k_tb__DOT__scc68070_0__DOT__uart_transmit_holding_register, stderr);
-        }
-
-        dut.rootp->fx68k_tb__DOT__clk = 1;
-        dut.eval();
-        if (kDoTrace) {
-            m_trace.dump(sim_time);
-            sim_time++;
-        }
-
-        if (status == SIGINT)
-            break;
-    }
-
-    for (;; y++) {
-
-        dut.rootp->fx68k_tb__DOT__clk = 0;
-        dut.eval();
-        if (kDoTrace) {
-            m_trace.dump(sim_time);
-            sim_time++;
-        }
-
-        dut.rootp->fx68k_tb__DOT__clk = 1;
-        dut.eval();
-        if (kDoTrace) {
-            m_trace.dump(sim_time);
-            sim_time++;
-        }
-
-        if ((y % 100000) == 0) {
-            printf("%x\n", y);
-        }
-
-        // Print characters sent to UART to stderr
-        if ((dut.rootp->fx68k_tb__DOT__scc68070_0__DOT__uart_status_register & 0x04) == 0) {
-            dut.rootp->fx68k_tb__DOT__scc68070_0__DOT__uart_status_register |= 0x04;
-            // fprintf(stderr, " -> Uart Write %x\n",
-            // dut.rootp->fx68k_tb__DOT__scc68070_0__DOT__uart_transmit_holding_register);
-            printf(" -> Uart Write %x %c %d\n",
-                   dut.rootp->fx68k_tb__DOT__scc68070_0__DOT__uart_transmit_holding_register,
-                   dut.rootp->fx68k_tb__DOT__scc68070_0__DOT__uart_transmit_holding_register, y);
-
-            // fputc(dut.rootp->fx68k_tb__DOT__scc68070_0__DOT__uart_transmit_holding_register, stderr);
-        }
-
-        if (y == 5090053) {
-            printf("restore backup\n");
-            dut.rootp->fx68k_tb__DOT__rom[0x14a6 >> 1] = backup[0];
-            dut.rootp->fx68k_tb__DOT__rom[0x15ce >> 1] = backup[1];
-            dut.rootp->fx68k_tb__DOT__rom[0x1614 >> 1] = backup[2];
-        }
-
-        if (y == 0x31ed1c0) {
-            printf("remove delay\n");
-
-            dut.rootp->fx68k_tb__DOT__rom[0x14b8 >> 1] = 0;
-        }
-
-        if (status == SIGINT)
-            break;
-    }
 }
 
 int main(int argc, char **argv) {

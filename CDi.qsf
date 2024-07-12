@@ -12,7 +12,7 @@ set_global_assignment -name PARTITION_NETLIST_TYPE SOURCE -section_id Top
 set_global_assignment -name PARTITION_FITTER_PRESERVATION_LEVEL PLACEMENT_AND_ROUTING -section_id Top
 set_global_assignment -name PARTITION_COLOR 16764057 -section_id Top
 
-set_global_assignment -name LAST_QUARTUS_VERSION "17.0.0 Standard Edition"
+set_global_assignment -name LAST_QUARTUS_VERSION "17.0.2 Standard Edition"
 
 set_global_assignment -name GENERATE_RBF_FILE ON
 set_global_assignment -name PROJECT_OUTPUT_DIRECTORY output_files
@@ -291,6 +291,11 @@ set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to LED_*
 set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to BTN_*
 set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to BTN_*
 source files.qip
+set_global_assignment -name TOP_LEVEL_ENTITY sys_top
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/clut_rle.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/ica_dca_ctrl.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/display_file_decoder.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/video_timing.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/mycore.v
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/cditop.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/mcd212.sv
@@ -310,6 +315,5 @@ set_global_assignment -name VERILOG_FILE rtl/lfsr.v
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/cos.sv
 set_global_assignment -name SDC_FILE CDi.sdc
 set_global_assignment -name SYSTEMVERILOG_FILE CDi.sv
-set_global_assignment -name TOP_LEVEL_ENTITY sys_top
 set_global_assignment -name VERILOG_FILE rtl/cditop.v
 set_instance_assignment -name PARTITION_HIERARCHY root_partition -to | -section_id Top

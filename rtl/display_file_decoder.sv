@@ -8,7 +8,8 @@ module display_file_decoder (
 
     input reload_vsr,
     input [21:0] vsr_in,
-
+    input read_pixels,
+    
     output bit [7:0] pixel,
     output bit pixel_write,
     input pixel_strobe
@@ -19,53 +20,55 @@ module display_file_decoder (
     assign address = vsr;
 
     enum {
-        RESET,
         IDLE,
         READ,
         WRITE0,
         WRITE1,
         STOPPED
-    } state = RESET;
+    } state = IDLE;
 
     bit [7:0] temp;
 
     always_ff @(posedge clk) begin
-        case (state)
-            RESET: begin
-                if (reload_vsr) begin
-                    $display("start read");
-                    state <= IDLE;
+
+        if (reload_vsr) begin
+            $display("start read");
+            state <= IDLE;
+            vsr   <= vsr_in;
+        end else begin
+            case (state)
+                IDLE: begin
+                    if (read_pixels) begin
+                        state <= READ;
+                        as <= 1;
+                        pixel_write <= 0;
+                    end
                 end
-            end
-            IDLE: begin
-                state <= READ;
-                as <= 1;
-                pixel_write <= 0;
-            end
-            READ: begin
-                if (bus_ack) begin
-                    vsr <= vsr + 2;
-                    as <= 0;
-                    state <= WRITE0;
-                    //$display("Jo %x", din);
-                    pixel <= din[15:8];
-                    temp <= din[7:0];
-                    pixel_write <= 1;
+                READ: begin
+                    if (bus_ack) begin
+                        vsr <= vsr + 2;
+                        as <= 0;
+                        state <= WRITE0;
+                        //$display("Jo %x", din);
+                        pixel <= din[15:8];
+                        temp <= din[7:0];
+                        pixel_write <= 1;
+                    end
                 end
-            end
-            WRITE0: begin
-                if (pixel_strobe) begin
-                    pixel <= temp;
-                    state <= WRITE1;
+                WRITE0: begin
+                    if (pixel_strobe) begin
+                        pixel <= temp;
+                        state <= WRITE1;
+                    end
                 end
-            end
-            WRITE1: begin
-                if (pixel_strobe) begin
-                    pixel_write <= 0;
-                    state <= IDLE;
-                 //$display("Jo %x", din)!
+                WRITE1: begin
+                    if (pixel_strobe) begin
+                        pixel_write <= 0;
+                        state <= IDLE;
+                        //$display("Jo %x", din)!
+                    end
                 end
-            end
-        endcase
+            endcase
+        end
     end
 endmodule
