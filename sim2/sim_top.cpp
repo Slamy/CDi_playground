@@ -3,15 +3,15 @@
 #include <verilated_vcd_c.h>
 
 // Include model header, generated from Verilating "top.v"
-#include "Vfx68k_tb.h"
-#include "Vfx68k_tb___024root.h"
+#include "Vemu.h"
+#include "Vemu___024root.h"
 
 #include <csignal>
 #include <cstdio>
 #include <cstdlib>
 #include <png.h>
 
-int sim_time = 0;
+uint64_t sim_time = 0;
 
 static bool kDoTrace{true};
 
@@ -20,7 +20,7 @@ volatile sig_atomic_t status = 0;
 static void catch_function(int signo) {
     status = signo;
 }
-const int width = 120*16*2;
+const int width = 120 * 16 * 2;
 const int height = 600;
 
 uint8_t output_image[width * height * 3] = {0};
@@ -52,7 +52,7 @@ void write_png_file(const char *filename) {
 
     png_bytepp row_pointers = (png_bytepp)png_malloc(png, sizeof(png_bytepp) * height);
 
-    //output_image[1] = 255;
+    // output_image[1] = 255;
     for (int i = 0; i < height; i++) {
         row_pointers[i] = &output_image[width * 3 * i];
     }
@@ -67,45 +67,35 @@ void write_png_file(const char *filename) {
     png_destroy_write_struct(&png, &info);
 }
 
-uint32_t readlongword(Vfx68k_tb &dut, uint32_t adr) {
-    return (dut.rootp->fx68k_tb__DOT__mcd212_inst__DOT__testram[adr >> 1] << 16) |
-           dut.rootp->fx68k_tb__DOT__mcd212_inst__DOT__testram[(adr >> 1) + 1];
+void clock(VerilatedVcdC &m_trace, Vemu &dut) {
+    dut.rootp->emu__DOT__clk_sys = (sim_time & 2) >> 1;
+    dut.rootp->emu__DOT__clk_mem = (sim_time & 1);
+    dut.eval();
+    if (kDoTrace) {
+        m_trace.dump(sim_time);
+    }
+    sim_time++;
 }
-void do_justwait(VerilatedVcdC &m_trace, Vfx68k_tb &dut) {
+
+void do_justwait(VerilatedVcdC &m_trace, Vemu &dut) {
     dut.eval();
 
-    dut.rootp->fx68k_tb__DOT__resetcnt = 0x7FFF8;
+    // dut.rootp->fx68k_tb__DOT__resetcnt = 0x7FFF8;
 
-    kDoTrace = true;
-
-    FILE *f = fopen("ramdump.bin", "rb");
-    assert(f);
-    fread(&dut.rootp->fx68k_tb__DOT__mcd212_inst__DOT__testram[0], 1, 1024 * 256 * 4, f);
-    fclose(f);
+    kDoTrace = false;
 
     for (int y = 0; y < 1880000; y++) {
         //  for (int y = 0;; y++) {
-        dut.rootp->fx68k_tb__DOT__clk = 0;
-        dut.eval();
-        if (kDoTrace) {
-            m_trace.dump(sim_time);
-        }
-        sim_time++;
+        clock(m_trace, dut);
+        clock(m_trace, dut);
+        clock(m_trace, dut);
+        clock(m_trace, dut);
 
-        dut.rootp->fx68k_tb__DOT__clk = 1;
-        dut.eval();
-        if (kDoTrace) {
-            m_trace.dump(sim_time);
-        }
-        sim_time++;
+        static int output_index = 0;
 
-        static int output_index=0;
-        //if (dut.rootp->fx68k_tb__DOT__mcd212_inst__DOT__rle_pixel_strobe) {
-            //printf("%d %d\n",(output_index/3) % 384,dut.rootp->fx68k_tb__DOT__mcd212_inst__DOT__rle_pixel);
-            output_image[output_index++] = dut.rootp->fx68k_tb__DOT__r;
-            output_image[output_index++] = dut.rootp->fx68k_tb__DOT__g;
-            output_image[output_index++] = dut.rootp->fx68k_tb__DOT__b;
-        //}
+        output_image[output_index++] = dut.rootp->emu__DOT__r;
+        output_image[output_index++] = dut.rootp->emu__DOT__g;
+        output_image[output_index++] = dut.rootp->emu__DOT__b;
 
         if ((y % 100000) == 0) {
             printf("%d\n", y);
@@ -233,7 +223,7 @@ int main(int argc, char **argv) {
         Verilated::traceEverOn(true);
 
     VerilatedVcdC m_trace;
-    Vfx68k_tb dut;
+    Vemu dut;
 
     if (signal(SIGINT, catch_function) == SIG_ERR) {
         fputs("An error occurred while setting a signal handler.\n", stderr);

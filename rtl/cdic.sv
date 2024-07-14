@@ -10,14 +10,32 @@ module cdic (
     input uds,
     input lds,
     input write_strobe,
-    input cs
+    input cs,
+    output bit bus_ack
 );
 
     // 16 kB of CDIC memory
     bit [15:0] ram[8192];
+    bit [15:0] ram_readout;
 
     wire access = cs && uds && lds;
     bit access_q = 1;
+
+    always_ff @(posedge clk) begin
+        if (address[13:1] < 13'h1E00 && access && write_strobe) begin
+            ram[address[13:1]] <= din;
+            $display("CDIC Write RAM %x %x", address[13:1], din);
+        end else begin
+            ram_readout <= ram[address[13:1]];
+
+            if (access) $display("CDIC Read RAM %x %x", address[13:1], dout);
+        end
+
+        if (bus_ack) bus_ack <= 0;
+        else if (access) begin
+            bus_ack <= 1;
+        end
+    end
 
     // All access must be word aligned according to
     // https://github.com/cdifan/cdichips/blob/master/ims66490cdic.md
@@ -28,17 +46,12 @@ module cdic (
             case (address[13:1])
                 default: begin
                     if (access && cs && write_strobe) begin
-                        $display("CDIC Write RAM %x %x", address[13:1], din);
-
-                        ram[address[13:1]] <= din;
                     end else if (access && cs && !write_strobe) begin
-                        $display("CDIC Read RAM %x %x", address[13:1], dout);
                     end
                 end
             endcase
         end else if (cs) begin
             $display("CDIC %x", address[13:1]);
-
         end
 
     end
@@ -66,10 +79,7 @@ module cdic (
                 dout = 16'h0;
             end
             default: begin
-                // TODO fix this. Must be clocked for proper block ram
-`ifdef VERILATOR
-                dout = ram[address[13:1]];
-`endif
+                dout = ram_readout;
             end
         endcase
     end

@@ -15,7 +15,16 @@ module cditop (
 
     output [7:0] r,
     output [7:0] g,
-    output [7:0] b
+    output [7:0] b,
+
+    output [24:0] sdram_addr,
+    output        sdram_rd,
+    output        sdram_wr,
+    output        sdram_word,
+    output [15:0] sdram_din,
+    input  [15:0] sdram_dout,
+    input         sdram_busy
+
 );
 
     wire write_strobe;
@@ -23,7 +32,7 @@ module cditop (
     wire lds;
     wire uds;
 
-    wire bus_ack;
+    bit bus_ack;
 
     bit [15:0] data_in;
     wire [15:0] cpu_data_out;
@@ -32,7 +41,7 @@ module cditop (
 
     // 512 kB of ROM
     // TODO remove this after proper integration of ROM
-    bit [15:0] rom[23]  /*verilator public_flat_rw*/;
+    bit [15:0] rom[2000]  /*verilator public_flat_rw*/;
 
     initial begin
         $readmemh("testrom.mem", rom);
@@ -40,12 +49,27 @@ module cditop (
 
 
     // 8 kB of NVRAM
-    // TODO set size again to 8192 when inferred as block ram
-    bit [7:0] nvram[16]  /*verilator public_flat_rw*/;
+    bit [7:0] nvram[8192]  /*verilator public_flat_rw*/;
 
     wire mcd212_bus_ack;
     wire [15:0] mcd212_dout;
     wire [15:0] cdic_dout;
+    bit cdic_bus_ack;
+
+    bit [15:0] rom_readout;
+    bit rom_bus_ack;
+
+
+    bit [7:0] nvram_readout;
+    bit nvram_bus_ack;
+
+    always @(posedge clk) begin
+        rom_readout <= rom[addr[11:1]];
+
+        if (rom_bus_ack) rom_bus_ack <= 0;
+        else rom_bus_ack <= csrom;
+    end
+
     wire csrom;
 
     wire attex_cs_mcd212 = ((addr_byte <= 24'h27ffff) || (addr_byte >= 24'h400000)) && as && !addr[23];
@@ -69,7 +93,7 @@ module cditop (
         uds_q <= uds;
         lds_q <= lds;
         data_in_q <= data_in;
-        
+
         ce_pix <= 1;
 
         if (bus_ack) begin
@@ -117,13 +141,20 @@ module cditop (
         .cpu_write_strobe(write_strobe),
         .cs(attex_cs_mcd212),
         .csrom,
-        .r,
-        .g,
+        .r(),
+        .g(g),
         .b,
         .hsync(HSync),
         .vsync(VSync),
         .hblank(HBlank),
-        .vblank(VBlank)
+        .vblank(VBlank),
+        .sdram_addr(sdram_addr),
+        .sdram_rd(sdram_rd),
+        .sdram_wr(sdram_wr),
+        .sdram_word(sdram_word),
+        .sdram_din(sdram_din),
+        .sdram_dout(sdram_dout),
+        .sdram_busy(sdram_busy)
     );
 
     cdic cdic_inst (
@@ -134,7 +165,8 @@ module cditop (
         .uds(uds),
         .lds(lds),
         .write_strobe(write_strobe),
-        .cs(attex_cs_cdic)
+        .cs(attex_cs_cdic),
+        .bus_ack(cdic_bus_ack)
     );
 
     wire vsdc_intn = 1'b1;
@@ -147,7 +179,7 @@ module cditop (
         .as,
         .lds,
         .uds,
-        .bus_ack,
+        .bus_ack(bus_ack),
         .bus_err,
         .int1(!vsdc_intn),
         .int2(1'b0),  // unconnected in CDi MONO1
@@ -160,7 +192,7 @@ module cditop (
     );
 
     // make sure that the scc68070 is not optimized away
-    //assign r = addr[2] ? 8'hff : 0;
+    assign r = addr[2] ? 8'hff : 0;
     //assign g = addr[3] ? 8'hff : 0;
     //assign b = 8'hff;
 
@@ -183,7 +215,9 @@ module cditop (
         data_in = 0;
 
         if (csrom) begin
-            data_in = rom[addr[18:1]];
+            data_in = rom_readout;
+            bus_ack = rom_bus_ack;
+
         end else if (attex_cs_slave) begin
             if (porta_out == 8'h01) data_in = 16'h0202;  // TODO Slave has wrong answer
             else data_in = {porta_out, porta_out};
@@ -191,8 +225,10 @@ module cditop (
 
         end else if (attex_cs_cdic) begin
             data_in = cdic_dout;
+            bus_ack = cdic_bus_ack;
         end else if (attex_cs_nvram) begin
-            data_in = {nvram[addr[13:1]], nvram[addr[13:1]]};
+            data_in = {nvram_readout, nvram_readout};
+            bus_ack = nvram_bus_ack || write_strobe;
         end else if (attex_cs_mcd212) begin
             data_in = mcd212_dout;
             bus_ack = mcd212_bus_ack;
@@ -202,8 +238,16 @@ module cditop (
     always @(posedge clk) begin
 
         if (attex_cs_nvram) begin
-            if (uds && write_strobe) nvram[addr[13:1]] <= cpu_data_out[15:8];
+            if (uds && write_strobe) begin
+                nvram[addr[13:1]] <= cpu_data_out[15:8];
+            end else begin
+                nvram_readout <= nvram[addr[13:1]];
+
+                if (nvram_bus_ack) nvram_bus_ack <= 0;
+                else nvram_bus_ack <= 1;
+            end
         end
+
     end
 
     wire disdat_from_uc = ddrc[3] ? portc_out[3] : 1'b1;

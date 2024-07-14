@@ -18,28 +18,19 @@ module mcd212 (
     output [7:0] r,
     output [7:0] g,
     output [7:0] b,
-    output hsync,
-    output vsync,
-    output hblank,
-    output vblank
+    output       hsync,
+    output       vsync,
+    output       hblank,
+    output       vblank,
+
+    output bit [24:0] sdram_addr,
+    output bit        sdram_rd,
+    output bit        sdram_wr,
+    output bit        sdram_word,
+    output bit [15:0] sdram_din,
+    input      [15:0] sdram_dout,
+    input             sdram_busy
 );
-
-    // TODO remove this
-`ifdef VERILATOR
-    bit [15:0] testram[512*1024]  /*verilator public_flat_rw*/;
-`else
-    bit [15:0] testram[16]  /*verilator public_flat_rw*/;
-`endif
-
-
-
-    wire [22:0] cpu_addressb = {cpu_address[22:1], 1'b0};
-    // implementation of memory map according to MCD212 datasheet
-    wire cs_ram = cpu_addressb <= 23'h3fffff && cs;  // 4MB
-    wire cs_rom = cpu_addressb >= 23'h400000 && cpu_addressb <= 23'h4ffbff && cs;
-    wire cs_system_io = cpu_addressb >= 23'h4ffc00 && cpu_addressb <= 23'h4fffdf && cs;
-    wire cs_channel2 = cpu_addressb >= 23'h4fffe0 && cpu_addressb <= 23'h4fffef && cs;
-    wire cs_channel1 = cpu_addressb >= 23'h4ffff0 && cpu_addressb <= 23'h4fffff && cs;
 
     // Memory Swapping according to chapter 3.4
     // of MCD212 datasheet.
@@ -54,10 +45,17 @@ module mcd212 (
         end
     end
 
-    assign csrom = (cs_rom || cs_early_rom) && cs;
 
-    //wire [9:0] ras = {cpu_address[19], cpu_address[10], cpu_address[18:11]};
-    //wire [9:0] cas = {cpu_address[10:1]};
+    wire [22:0] cpu_addressb = {cpu_address[22:1], 1'b0};
+    // implementation of memory map according to MCD212 datasheet
+    wire cs_ram = cpu_addressb <= 23'h3fffff && cs && !cs_early_rom;  // 4MB
+    wire cs_rom = cpu_addressb >= 23'h400000 && cpu_addressb <= 23'h4ffbff && cs;
+    wire cs_system_io = cpu_addressb >= 23'h4ffc00 && cpu_addressb <= 23'h4fffdf && cs;
+    wire cs_channel2 = cpu_addressb >= 23'h4fffe0 && cpu_addressb <= 23'h4fffef && cs;
+    wire cs_channel1 = cpu_addressb >= 23'h4ffff0 && cpu_addressb <= 23'h4fffff && cs;
+
+
+    assign csrom = (cs_rom || cs_early_rom) && cs;
 
     // Bit 18 is the Bank selection for TD=0
     // CAS1 if A18=0, CAS2 if A18=1
@@ -68,53 +66,50 @@ module mcd212 (
     bit cpu_uds_q = 0;
 
     bit parity = 0;
-    bit display_active = 0;
 
-    bit [7:0] tempcnt = 0;
 
-    always_ff @(posedge clk) begin
-        tempcnt <= tempcnt + 1;
-        display_active <= tempcnt[7];
-    end
-    bit ram_read_access_q = 0;
-    wire ram_read_access = !cpu_write_strobe && cs_ram && (cpu_uds || cpu_lds) && !ram_read_access_q;
+    bit ram_access_q = 0;
+    wire ram_access = cs_ram && (cpu_uds || cpu_lds) && !ram_access_q;
 
     always_comb begin
+        cpu_dout = 0;
         cpu_bus_ack = 1;
+        if (ram_access || sdram_busy) cpu_bus_ack = 0;
 
-        if (ram_read_access) cpu_bus_ack = 0;
+        sdram_addr[24:1] = {5'b0, ram_address[19:1]};
+        sdram_addr[0] = cpu_lds && !cpu_uds;  // only active on odd byte accesses
+        sdram_word = cpu_lds && cpu_uds;
+        sdram_rd = cs_ram && !cpu_write_strobe;
+        sdram_wr = cs_ram && cpu_write_strobe;
+        sdram_din = cpu_din;
+
+        //sdram_din[7:0] = cpu_lds ? cpu_din[7:0] : ;
+
+
+        if (cs_ram) begin
+            cpu_dout = sdram_dout;
+        end else if (cs_channel1) begin
+            case (cpu_addressb[7:0])
+                8'hf0: begin
+                    cpu_dout = {8'h0, !vblank, 1'b0, parity, 5'b0};
+                    //cpu_dout <= {display_active, 1'b0, parity, 5'b0, display_active, 1'b0, parity, 5'b0};
+                end
+                default: cpu_dout = 16'h0;
+            endcase
+        end else if (cs_channel2) begin
+            case (cpu_addressb[7:0])
+                default: cpu_dout = 16'h0;
+            endcase
+        end
     end
 
     always_ff @(posedge clk) begin
         cs_q <= cs;
         cpu_uds_q <= cpu_uds;
         cpu_lds_q <= cpu_lds;
-        ram_read_access_q <= ram_read_access;
+        ram_access_q <= ram_access;
 
-        if (cs_ram) begin
-            if (cpu_uds && cpu_write_strobe) begin
-                testram[ram_address[19:1]][15:8] <= cpu_din[15:8];
-            end
-            if (cpu_lds && cpu_write_strobe) begin
-                testram[ram_address[19:1]][7:0] <= cpu_din[7:0];
-            end
 
-            if (!cpu_write_strobe) begin
-                cpu_dout <= testram[ram_address[19:1]];
-            end
-        end else if (cs_channel1) begin
-            case (cpu_addressb[7:0])
-                8'hf0: begin
-                    cpu_dout <= {8'h0, display_active, 1'b0, parity, 5'b0};
-                    //cpu_dout <= {display_active, 1'b0, parity, 5'b0, display_active, 1'b0, parity, 5'b0};
-                end
-                default: cpu_dout <= 16'h0;
-            endcase
-        end else if (cs_channel2) begin
-            case (cpu_addressb[7:0])
-                default: cpu_dout <= 16'h0;
-            endcase
-        end
 
         /*
         if ((cpu_lds || cpu_uds) && cs_ram && !cpu_write_strobe && cpu_bus_ack) 
@@ -165,6 +160,7 @@ module mcd212 (
     clut_entry trans_color_plane_b;
     clut_entry mask_color_plane_a;
     clut_entry mask_color_plane_b;
+    clut_entry clut_out;
 
     bit sm = 0;
     bit cf = 1;
@@ -286,12 +282,15 @@ module mcd212 (
 
         if (new_line) synchronized_pixel <= 0;
         else if (rle_pixel_write && rle_pixel_strobe) synchronized_pixel <= rle_pixel;
+
+
+        clut_out <= clut[synchronized_pixel];
     end
 
 
-    assign r = {clut[synchronized_pixel].r, 2'b00};
-    assign g = {clut[synchronized_pixel].g, 2'b00};
-    assign b = {clut[synchronized_pixel].b, 2'b00};
+    assign r = {clut_out.r, 2'b00};
+    assign g = {clut_out.g, 2'b00};
+    assign b = {clut_out.b, 2'b00};
     //assign b =  (rle_pixel_write && rle_pixel_strobe)  ? 255 : 0;
 
     /*
@@ -305,7 +304,6 @@ module mcd212 (
     always_ff @(posedge clk) begin
         //file0_din <= testram[file0_adr[19:1]];
         file0_din <= videotestram[file0_adr[19:1]-484208/2];
-
 
         if (file0_bus_ack) file0_bus_ack <= 0;
         else file0_bus_ack <= file0_as;

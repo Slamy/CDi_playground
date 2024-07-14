@@ -292,6 +292,7 @@ set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to BTN_*
 set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to BTN_*
 source files.qip
 set_global_assignment -name TOP_LEVEL_ENTITY sys_top
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/sdram.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/clut_rle.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/ica_dca_ctrl.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/display_file_decoder.sv

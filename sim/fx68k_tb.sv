@@ -30,6 +30,22 @@ module fx68k_tb;
     wire mcd212_bus_ack;
     wire [15:0] mcd212_dout;
     wire [15:0] cdic_dout;
+    bit cdic_bus_ack;
+
+    bit [15:0] rom_readout;
+    bit rom_bus_ack;
+
+
+    bit [7:0] nvram_readout;
+    bit nvram_bus_ack;
+
+    always @(posedge clk) begin
+        rom_readout <= rom[addr[18:1]];
+
+        if (rom_bus_ack) rom_bus_ack <= 0;
+        else rom_bus_ack <= csrom;
+    end
+
     wire csrom;
 
     wire attex_cs_mcd212 = ((addr_byte <= 24'h27ffff) || (addr_byte >= 24'h400000)) && as && !addr[23];
@@ -96,13 +112,22 @@ module fx68k_tb;
     end
 
 
-    wire [7:0] r  /*verilator public_flat_rd*/;
-    wire [7:0] g  /*verilator public_flat_rd*/;
-    wire [7:0] b  /*verilator public_flat_rd*/;
-    wire hsync;
-    wire vsync;
-    wire hblank;
-    wire vblank;
+    wire [ 7:0] r  /*verilator public_flat_rd*/;
+    wire [ 7:0] g  /*verilator public_flat_rd*/;
+    wire [ 7:0] b  /*verilator public_flat_rd*/;
+    wire        hsync;
+    wire        vsync;
+    wire        hblank;
+    wire        vblank;
+
+
+    bit  [24:0] sdram_addr;
+    bit         sdram_rd;
+    bit         sdram_wr;
+    bit         sdram_word;
+    bit  [15:0] sdram_din;
+    bit  [15:0] sdram_dout;
+    bit         sdram_busy;
 
     mcd212 mcd212_inst (
         .clk,
@@ -122,7 +147,14 @@ module fx68k_tb;
         .hsync,
         .vsync,
         .hblank,
-        .vblank
+        .vblank,
+        .sdram_addr,
+        .sdram_rd,
+        .sdram_wr,
+        .sdram_word,
+        .sdram_din,
+        .sdram_dout,
+        .sdram_busy
     );
 
     cdic cdic_inst (
@@ -133,12 +165,13 @@ module fx68k_tb;
         .uds(uds),
         .lds(lds),
         .write_strobe(write_strobe),
-        .cs(attex_cs_cdic)
+        .cs(attex_cs_cdic),
+        .bus_ack(cdic_bus_ack)
     );
 
     wire vsdc_intn = 1'b1;
     wire in2in;
-    /*
+
 
     scc68070 scc68070_0 (
         .clk,
@@ -158,7 +191,7 @@ module fx68k_tb;
         .data_out(cpu_data_out),
         .addr
     );
-*/
+
     bit [19:0] resetcnt  /*verilator public_flat_rw*/ = 0;
 
     always_ff @(posedge clk) begin
@@ -172,16 +205,16 @@ module fx68k_tb;
     end
 
 
-    wire [7:0] ddra;
-    wire [7:0] ddrb;
-    wire [7:0] ddrc;
+    bit [7:0] ddra;
+    bit [7:0] ddrb;
+    bit [7:0] ddrc;
 
     wire [7:0] porta_in = cpu_data_out[7:0];
-    wire [7:0] porta_out;
+    bit [7:0] porta_out;
     wire [7:0] portb_in = 8'hff;
-    wire [7:0] portb_out;
+    bit [7:0] portb_out;
     wire [7:0] portc_in = {6'b111111, addr[2:1]};
-    wire [7:0] portc_out;
+    bit [7:0] portc_out;
     wire [7:0] portd_in = {!write_strobe, 7'b1111111};
 
     bit slave_bus_ack;
@@ -191,16 +224,20 @@ module fx68k_tb;
         data_in = 0;
 
         if (csrom) begin
-            data_in = rom[addr[18:1]];
+            data_in = rom_readout;
+            bus_ack = rom_bus_ack;
+
         end else if (attex_cs_slave) begin
-            if (porta_out == 8'h01) data_in = 16'h0202;  // TODO Slave antwortet falsch
+            if (porta_out == 8'h01) data_in = 16'h0202;  // TODO Slave has wrong answer
             else data_in = {porta_out, porta_out};
             bus_ack = slave_bus_ack;
 
         end else if (attex_cs_cdic) begin
             data_in = cdic_dout;
+            bus_ack = cdic_bus_ack;
         end else if (attex_cs_nvram) begin
-            data_in = {nvram[addr[13:1]], nvram[addr[13:1]]};
+            data_in = {nvram_readout, nvram_readout};
+            bus_ack = nvram_bus_ack;
         end else if (attex_cs_mcd212) begin
             data_in = mcd212_dout;
             bus_ack = mcd212_bus_ack;
@@ -216,7 +253,14 @@ module fx68k_tb;
     always @(posedge clk) begin
 
         if (attex_cs_nvram) begin
-            if (uds && write_strobe) nvram[addr[13:1]] <= cpu_data_out[15:8];
+            if (uds && write_strobe) begin
+                nvram[addr[13:1]] <= cpu_data_out[15:8];
+            end else begin
+                nvram_readout <= nvram[addr[13:1]];
+
+                if (nvram_bus_ack) nvram_bus_ack <= 0;
+                else nvram_bus_ack <= 1;
+            end
         end
     end
 
