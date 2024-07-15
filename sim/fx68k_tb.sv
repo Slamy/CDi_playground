@@ -189,7 +189,9 @@ module fx68k_tb;
         .in5(1'b0),
         .data_in,
         .data_out(cpu_data_out),
-        .addr
+        .addr,
+        .uart_tx(),
+        .uart_rx()
     );
 
     bit [19:0] resetcnt  /*verilator public_flat_rw*/ = 0;

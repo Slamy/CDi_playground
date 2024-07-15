@@ -23,7 +23,10 @@ module cditop (
     output        sdram_word,
     output [15:0] sdram_din,
     input  [15:0] sdram_dout,
-    input         sdram_busy
+    input         sdram_busy,
+
+    output scc68_uart_tx,
+    input scc68_uart_rx
 
 );
 
@@ -141,7 +144,7 @@ module cditop (
         .cpu_write_strobe(write_strobe),
         .cs(attex_cs_mcd212),
         .csrom,
-        .r(),
+        .r(r),
         .g(g),
         .b,
         .hsync(HSync),
@@ -188,11 +191,13 @@ module cditop (
         .in5(1'b0),
         .data_in(data_in),
         .data_out(cpu_data_out),
-        .addr
+        .addr,
+        .uart_tx(scc68_uart_tx),
+        .uart_rx(scc68_uart_rx)
     );
 
     // make sure that the scc68070 is not optimized away
-    assign r = addr[2] ? 8'hff : 0;
+    //assign r = addr[2] ? 8'hff : 0;
     //assign g = addr[3] ? 8'hff : 0;
     //assign b = 8'hff;
 

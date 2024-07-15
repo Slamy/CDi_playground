@@ -201,3 +201,4 @@ microstate=nopnop
 [:mcd212] Scanline 32: Chan 0: RLE
 [:mcd212] Byte fb w/ run length 06 at 138
 
+cat k | grep XYZ | cut -f 2 -d " " > videotestram.mem

@@ -175,7 +175,7 @@ module emu (
 
     assign ADC_BUS = 'Z;
     assign USER_OUT = '1;
-    assign {UART_RTS, UART_TXD, UART_DTR} = 0;
+    assign {UART_RTS, UART_DTR} = 0;
     assign {SD_SCK, SD_MOSI, SD_CS} = 'Z;
     assign {SDRAM_DQ, SDRAM_A, SDRAM_BA, SDRAM_CLK, SDRAM_CKE, SDRAM_DQML, SDRAM_DQMH, SDRAM_nWE, SDRAM_nCAS, SDRAM_nRAS, SDRAM_nCS} = 'Z;
     assign {DDRAM_CLK, DDRAM_BURSTCNT, DDRAM_ADDR, DDRAM_DIN, DDRAM_BE, DDRAM_RD, DDRAM_WE} = '0;
@@ -207,7 +207,7 @@ module emu (
 
     `include "build_id.v"
     localparam CONF_STR = {
-        "CDi;;",
+        "CDi;UART115200;",
         "-;",
         "O[122:121],Aspect ratio,Original,Full Screen,[ARC1],[ARC2];",
         "O[2],TV Mode,NTSC,PAL;",
@@ -335,7 +335,10 @@ module emu (
         .sdram_word(sdram_word),
         .sdram_din (sdram_din),
         .sdram_dout(sdram_dout),
-        .sdram_busy(sdram_busy)
+        .sdram_busy(sdram_busy),
+
+        .scc68_uart_tx(UART_TXD),
+        .scc68_uart_rx(UART_RXD)
     );
 
     assign CLK_VIDEO = clk_sys;
@@ -344,8 +347,8 @@ module emu (
     assign VGA_DE = ~(HBlank | VBlank);
     assign VGA_HS = HSync;
     assign VGA_VS = VSync;
-    assign VGA_R = r;
-    assign VGA_G = g;
+    assign VGA_R = UART_RXD ? r : 0;
+    assign VGA_G = UART_TXD ? g : 0;
     assign VGA_B = b;
 
     reg [26:0] act_cnt;

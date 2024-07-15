@@ -82,7 +82,20 @@ void do_justwait(VerilatedVcdC &m_trace, Vemu &dut) {
 
     // dut.rootp->fx68k_tb__DOT__resetcnt = 0x7FFF8;
 
-    kDoTrace = false;
+    // kDoTrace = false;
+
+    dut.RESET = 1;
+    dut.UART_RXD = 1;
+    clock(m_trace, dut);
+    clock(m_trace, dut);
+    clock(m_trace, dut);
+    clock(m_trace, dut);
+
+    clock(m_trace, dut);
+    clock(m_trace, dut);
+    clock(m_trace, dut);
+    clock(m_trace, dut);
+    dut.RESET = 0;
 
     for (int y = 0; y < 1880000; y++) {
         //  for (int y = 0;; y++) {
@@ -97,9 +110,16 @@ void do_justwait(VerilatedVcdC &m_trace, Vemu &dut) {
         output_image[output_index++] = dut.rootp->emu__DOT__g;
         output_image[output_index++] = dut.rootp->emu__DOT__b;
 
-        if ((y % 100000) == 0) {
+        if ((y % 10000) == 0) {
             printf("%d\n", y);
         }
+
+        if (y == 110000)
+            dut.UART_RXD = 0;
+        if (y == 112000)
+            dut.UART_RXD = 1;
+
+
         /*
         printf("%x %x %x %x\n",
            dut.rootp-> fx68k_tb__DOT__scc68070_0__DOT__tg68__DOT__tg68kdotcinst__DOT__tg68_pc,
