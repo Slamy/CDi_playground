@@ -13,6 +13,7 @@ typedef struct {
     bit [9:0] chroma_width;
     bit [7:0] video_status;  // tempref and picture type
     bit [31:0] timecode;
+    bit [7:0] frameperiod_rawhdr;
 } planar_yuv_s;
 
 typedef struct packed {

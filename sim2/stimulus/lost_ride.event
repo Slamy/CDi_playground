@@ -1,0 +1,17 @@
+# Skip the intros
+242 b1 3
+406 b1 3
+427 b1 3
+458 b1 3
+693 b1 3
+
+# We should be ingame now
+
+# Open the map by pressing b1+b2
+952 b1 3
+952 b2 3
+
+977 trace_on
+
+# Close the map
+978 b1 3

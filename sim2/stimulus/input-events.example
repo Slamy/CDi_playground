@@ -1,6 +1,6 @@
 # <frame> <command> [hold_frames]
 # Analog input: <frame> analog <x> <y>; JOY0_ANALOG = { Y, X }, signed 8-bit values
-# Commands: b1, b2, analog, trace_on, trace_off, instructions_on, instructions_off, quit
+# Commands: b1, b2, b1b2, analog, trace_on, trace_off, instructions_on, instructions_off, quit
 154 b1
 414 b1 5
 460 b1

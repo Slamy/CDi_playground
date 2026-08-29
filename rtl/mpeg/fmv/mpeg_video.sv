@@ -53,12 +53,15 @@ module mpeg_video (
     output bit [10:0] decoder_width,
     output bit [ 8:0] decoder_height,
     output bit [31:0] decoder_timecode,
+    output bit [15:0] decoder_frameperiod_90khz,
+    output bit [ 7:0] decoder_frameperiod_rawhdr,
+
     output bit [10:0] display_width,
     output bit [ 8:0] display_height,
     output bit [ 7:0] display_video_status,
     output bit [31:0] display_timecode,
-    output bit [15:0] decoder_frameperiod_90khz,
-    output bit [ 7:0] decoder_frameperiod_rawhdr
+    output bit [ 7:0] display_frameperiod_rawhdr
+
 );
     ddr_if worker_2_ddr ();
     ddr_if worker_3_ddr ();
@@ -170,7 +173,7 @@ module mpeg_video (
     end
 
     wire dts_fifo_valid;
-    wire signed [32:0] dts_fifo_out;
+    (* keep *) (* noprune *) wire signed [32:0] dts_fifo_out;
 
     wire [6:0] pictures_in_dts_fifo;
 
@@ -196,15 +199,16 @@ module mpeg_video (
 
     wire totally_out_of_sync_need_frameskip = dts_fifo_out_valid_dts && demuxer_dts_desync > 15000;
 
-
     // Only bits 21:6 can be changed by the CPU
     // It should be noted that the driver wants to have bit 21 always 0.
     // So only bits 20:6 of dclk must be used here.
+    (* keep *)
+    (* noprune *)
     wire signed [14:0] display_dts_desync = dclk[20:6] - dts_fifo_out[21:7];
 
     // Latched from display_dts_desync at latch_frame_for_display
     // to help with meta stability
-    bit signed [14:0] display_dts_desync_q;
+    (* keep *) (* noprune *) bit signed [14:0] display_dts_desync_q;
 
     // Inc on picture_added_in_input_fifo
     // Dec on event_frame_decoded
@@ -264,7 +268,7 @@ module mpeg_video (
                 );
 
             // Only apply during synchronous playback and when we have a valid DTS for desync calculation
-            display_dts_desync_q <= (dts_fifo_out_valid_dts && synchronous_playback && !totally_out_of_sync_need_frameskip) ? display_dts_desync : 0;
+            display_dts_desync_q <= (dts_fifo_out_valid_dts && synchronous_playback) ? display_dts_desync : 0;
         end
 
         event_buffer_underflow <= pictures_in_fifo==1 && latch_frame_for_display && pictures_in_mpeg_decoder==0;
@@ -755,16 +759,21 @@ module mpeg_video (
                             event_sequence_end_clk_mpeg <= 1;
                         if (dmem_cmd_payload_address_1[15:0] == 16'h3020)
                             just_decoded.first_intra_frame_of_gop <= dmem_cmd_payload_data_1[0];
-                        if (dmem_cmd_payload_address_1[15:0] == 16'h3030)
+                        if (dmem_cmd_payload_address_1[15:0] == 16'h3030) begin
+                            just_decoded.frameperiod_rawhdr <= dmem_cmd_payload_data_1[7:0];
                             decoder_frameperiod_rawhdr_clk_mpeg <= dmem_cmd_payload_data_1[7:0];
+                        end
                         if (dmem_cmd_payload_address_1[15:0] == 16'h3034)
                             decoder_frameperiod_90khz_clk_mpeg <= dmem_cmd_payload_data_1[15:0];
                         if (dmem_cmd_payload_address_1[15:0] == 16'h3038) begin
                             just_decoded.video_status <= dmem_cmd_payload_data_1[7:0];
+                            $display("FMV video_status %d %d", dmem_cmd_payload_data_1[31:2],
+                                     dmem_cmd_payload_data_1[1:0]);
                         end
                         if (dmem_cmd_payload_address_1[15:0] == 16'h3044) begin
                             just_decoded.timecode <= dmem_cmd_payload_data_1;
                             decoder_timecode_clk_mpeg <= dmem_cmd_payload_data_1;
+                            $display("FMV timecode %x", dmem_cmd_payload_data_1);
                         end
                         if (dmem_cmd_payload_address_1[15:0] == 16'h3048) begin
                             just_decoded.first_intra_frame_of_seq <= dmem_cmd_payload_data_1[0];
@@ -779,7 +788,7 @@ module mpeg_video (
 
                         if (dmem_cmd_payload_address_1[15:0] == 16'h2010) begin
                             has_sequence_header <= dmem_cmd_payload_data_1[0];
-                            $display("has_sequence_header %d", dmem_cmd_payload_data_1[0]);
+                            $display("FMV has_sequence_header %d", dmem_cmd_payload_data_1[0]);
                         end
 
                     end
@@ -848,7 +857,25 @@ module mpeg_video (
     bit frame_period_tick;
 
     // 24' is required to fix math problem on Verilator
-    wire [23:0] frame_period_top = frame_period - 1 - (24'(display_dts_desync_q) * 2048);
+    bit [23:0] frame_period_top;
+
+    // Min period was confirmed by resuming with Continue command
+    // Addams Family /cd/seq2.rtf seek 0x08d65800
+    // Lost Ride     /cd/ma       seek 0x03520800
+    // VMPEG had the same speed to fast forward
+    wire [23:0] frame_period_min = frame_period - frame_period / 8;
+    wire [23:0] frame_period_max = frame_period + frame_period / 8;
+
+    always_comb begin
+        frame_period_top = frame_period - 1 - (24'(display_dts_desync_q) * 2048);
+
+        if (frame_period_top < frame_period_min || totally_out_of_sync_need_frameskip) begin
+            frame_period_top = frame_period_min;
+        end else if (frame_period_top > frame_period_max) begin
+            frame_period_top = frame_period_max;
+        end
+    end
+
 
     // Initial DTS near SCR. Playback is allowed
     bit display_dts_desync_satisfied_latch = 0;
@@ -880,6 +907,7 @@ module mpeg_video (
             latch_frame_for_display <= 0;
             display_video_status <= for_display.video_status;
             display_timecode <= for_display.timecode;
+            display_frameperiod_rawhdr <= for_display.frameperiod_rawhdr;
             display_width <= for_display.width;
             display_height <= for_display.height;
             first_intra_frame_of_gop_clk30 <= for_display.first_intra_frame_of_gop;
@@ -926,12 +954,6 @@ module mpeg_video (
         end
 
         if (playback_active) begin
-            // Skip frames during huge differences. Occuring when going for normal speed after slow motion
-            if (vblank && !hsync && hsync_q && totally_out_of_sync_need_frameskip && for_display_valid && synchronous_playback) begin
-                $display("FrameSkip");
-                latch_frame_for_display <= 1;
-            end
-
             // Start playback only when we are near the next valid DTS 
             if (!dts_fifo_out_valid_dts || (dts_fifo_out_valid_dts && display_dts_desync > -30)) begin
                 display_dts_desync_satisfied_latch <= 1;

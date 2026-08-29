@@ -563,12 +563,14 @@ class CDi {
 
         // The FPGA PLL is configured for 80 MHz, but
         // the power is not always required. Scale it up to 60 MHZ
-        if (fmv_fifo_level > 2000) {
+        if (fmv_fifo_level > 2000 &&
+            dut.rootp->emu__DOT__cditop__DOT__vmpeg_inst__DOT__video__DOT__pictures_in_output_fifo < 3) {
             clockmpeg();
         }
 
         // Ok, scale it up to 90 MHz
-        if (fmv_fifo_level > 8000) {
+        if (fmv_fifo_level > 8000 &&
+            dut.rootp->emu__DOT__cditop__DOT__vmpeg_inst__DOT__video__DOT__pictures_in_output_fifo < 3) {
             clockmpeg();
         }
     }

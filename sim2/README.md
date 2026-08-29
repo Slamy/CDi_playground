@@ -14,6 +14,15 @@ You need CD images to use with the simulation. Only the `.bin` files are require
 
     ./sim_top.sh
 
+### MPEG-1 GOP and picture headers
+
+To list sequence properties, GOP timecodes, and the temporal reference and
+coding type of every picture in an MPEG-1 elementary or system/program stream:
+
+    ./mpeg1_picture_info.py path/to/video.m1v
+
+Use `--json` for newline-delimited JSON output suitable for other tools.
+
 ### Live frame viewer
 
 In another terminal, run the following to keep a window on the most recently

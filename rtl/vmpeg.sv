@@ -41,9 +41,7 @@ module vmpeg (
 
     input debug_disable_vcd_clock,
     input debug_activate_vcd_filter,
-    output bit mpeg_ram_enabled,  // Prohibits detection of MPEG RAM by the OS RAM crawler
-    output bit debug_audio_fifo_overflow,
-    output bit debug_video_fifo_overflow
+    output bit mpeg_ram_enabled  // Prohibits detection of MPEG RAM by the OS RAM crawler
 );
     wire access = cs && (uds || lds);
 
@@ -184,21 +182,12 @@ module vmpeg (
         .display_width(fmv_display_width),
         .display_height(fmv_display_height),
         .display_video_status(fmv_display_video_status),
+        .display_frameperiod_rawhdr(fmv_display_frameperiod_rawhdr),
         .display_timecode(fmv_display_timecode),
         .decoder_timecode(fmv_decoder_timecode),
         .decoder_frameperiod_90khz(fmv_decoder_frameperiod_90khz),
         .decoder_frameperiod_rawhdr(fmv_decoder_frameperiod_rawhdr)
     );
-
-    always_ff @(posedge clk) begin
-        if (reset) begin
-            debug_video_fifo_overflow <= 0;
-            debug_audio_fifo_overflow <= 0;
-        end else begin
-            if (fma_fifo_full) debug_audio_fifo_overflow <= 1;
-            if (fmv_fifo_full) debug_video_fifo_overflow <= 1;
-        end
-    end
 
     wire fmv_event_program_end;
     wire fma_event_program_end;
@@ -450,6 +439,7 @@ module vmpeg (
     wire [ 7:0] fmv_display_video_status;
     wire [15:0] fmv_decoder_frameperiod_90khz;
     wire [ 7:0] fmv_decoder_frameperiod_rawhdr;
+    wire [ 7:0] fmv_display_frameperiod_rawhdr;
 
     localparam kDisplayRate_PAL = 16'h0708;
     localparam kDisplayRate_NTSC = 16'h05DC;  // TODO confirmation required
@@ -498,6 +488,12 @@ module vmpeg (
         bit [1:0] vbuf;
     } video_command_s;
 
+    bit fmv_request_for_bits;
+    always_comb begin
+        // Request for bits according to actual buffer water level
+        fmv_request_for_bits = !fmv_fifo_full;
+    end
+
     bit [5:0] mpeg_ram_enabled_cnt;
 
     always_comb begin
@@ -524,15 +520,15 @@ module vmpeg (
             15'h2001: dout = image_width;  // 00E04002 ?? Written then Read FMV_IMGSZ
             15'h2002: dout = image_height;  // 00E04004 ?? Written then Read
             15'h2003: dout = image_rt;  // 00E04006 ??
-            15'h2004: dout = fmv_display_timecode[31:16];  // 00E04008 Temporal time code High
-            15'h2005: dout = fmv_display_timecode[15:0];  // 00E0400C Temporal time code Low
+            15'h2004: dout = fmv_decoder_timecode[31:16];  // 00E04008 Temporal time code High
+            15'h2005: dout = fmv_decoder_timecode[15:0];  // 00E0400C Temporal time code Low
             15'h2029: dout = {5'b0, fmv_display_width};  // e04052 PIC Width, Only read FMV_PICSZ
             15'h202a: dout = {7'b0, fmv_display_height};  // e04054 PIC Height, Only read
-            15'h202b: dout = {8'b0, fmv_decoder_frameperiod_rawhdr};  // e04056 Pic Rt ??
-            15'h202c: dout = fmv_decoder_timecode[31:16];  // 00E04058 Time Code High ??
-            15'h202d: dout = fmv_decoder_timecode[15:0];  // 00E0405A Time Code Low ??
+            15'h202b: dout = {8'b0, fmv_display_frameperiod_rawhdr};  // e04056 Pic Rt ??
+            15'h202c: dout = fmv_display_timecode[31:16];  // 00E04058 Time Code High ??
+            15'h202d: dout = fmv_display_timecode[15:0];  // 00E0405A Time Code Low ??
             15'h202e: dout = {8'b0, fmv_display_video_status};  // 00E0405C SYS_VSR
-            15'h202f: dout = fmv_fifo_full ? 0 : 16'h2000;  // 00E0405E ? SYS_STS
+            15'h202f: dout = {2'b0, fmv_request_for_bits, 13'b0};  // 00E0405E ? SYS_STS
             15'h2030: dout = fmv_interrupt_enable_register;  // 0E04060
             15'h2031: dout = fmv_interrupt_status_register;  // 0E04062
             15'h2032: dout = fmv_timer_compare_register;  // 0E04064
@@ -650,7 +646,7 @@ module vmpeg (
             video_ctrl_y_offset <= 0;
         end else begin
 
-            if (fmv_event_frame_decoded_q) begin
+            if (fmv_event_frame_decoded_q && fmv_playback_active) begin
                 image_width <= {5'b0, fmv_decoder_width};
                 image_height <= {7'b0, fmv_decoder_height};
                 image_rt <= {8'b0, fmv_decoder_frameperiod_rawhdr};
@@ -947,6 +943,10 @@ module vmpeg (
                             if (din[3]) begin  // 0008 Play
                                 fmv_dclk_start_video <= fma_dclk + 32'd1000;
                                 fmv_dclk_start_video_latched <= 1;
+
+                                image_width <= {5'b0, fmv_decoder_width};
+                                image_height <= {7'b0, fmv_decoder_height};
+                                image_rt <= {8'b0, fmv_decoder_frameperiod_rawhdr};
 
                                 // TODO can't be correct. set 0x42
                                 fmv_decoder_command[6] <= 1;
